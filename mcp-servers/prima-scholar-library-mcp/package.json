@@ -1,0 +1,24 @@
+{
+  "name": "prima-scholar-library-mcp",
+  "version": "1.0.0",
+  "description": "Local document library MCP server with SQLite FTS5 full-text search",
+  "type": "module",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "better-sqlite3": "^11.0.0",
+    "pdf-parse": "^1.1.1",
+    "mammoth": "^1.8.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  },
+  "author": "Larry G. Maguire",
+  "license": "MIT"
+}

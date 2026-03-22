@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "prima-scholar-search": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/prima-scholar-search-mcp/build/index.js"],
+      "env": {
+        "PUBMED_API_KEY": "${PUBMED_API_KEY}",
+        "SEMANTIC_SCHOLAR_KEY": "${SEMANTIC_SCHOLAR_KEY}",
+        "CROSSREF_MAILTO": "${CROSSREF_MAILTO}"
+      }
+    },
+    "prima-scholar-library": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/prima-scholar-library-mcp/build/index.js"],
+      "env": {
+        "RESEARCH_LIBRARY_PATH": "${RESEARCH_LIBRARY_PATH}"
+      }
+    }
+  }
+}
