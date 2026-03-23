@@ -5,7 +5,7 @@
  * A Model Context Protocol server for searching academic literature
  * across PubMed, arXiv, Semantic Scholar, and CrossRef.
  *
- * @author Larry G. Maguire
+ * @author PRIMA Contributors
  * @version 1.0.0
  */
 

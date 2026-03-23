@@ -6,7 +6,7 @@
  * library with FTS5 full-text search for research papers, articles,
  * and reference materials.
  *
- * @author Larry G. Maguire
+ * @author PRIMA Contributors
  * @version 1.0.0
  */
 

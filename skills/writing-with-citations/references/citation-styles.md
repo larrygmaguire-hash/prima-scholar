@@ -17,7 +17,7 @@ APA7 is the default style for all PRIMA Scholar output. Other styles can be requ
 
 | Style | Typical Context |
 |-------|----------------|
-| **APA7** | Default. Psychology, education, organisational behaviour, social sciences. Most academic journals in Larry's fields. |
+| **APA7** | Default. Psychology, education, organisational behaviour, social sciences. Most academic journals in psychology, education, organisational behaviour, and social sciences. |
 | **Harvard** | UK university assignments, some business schools. Very similar to APA7 in practice — main difference is no comma before year in-text. |
 | **Chicago** | Humanities, history. Author-date variant is similar to APA; notes-bibliography variant uses footnotes. |
 | **MLA** | Literature, arts, cultural studies. Page numbers in-text rather than year. |

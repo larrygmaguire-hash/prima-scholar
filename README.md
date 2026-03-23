@@ -1,29 +1,31 @@
+![PRIMA Scholar](assets/prima-scholar-brand-image.png)
+
 # PRIMA Scholar
 
-A research workspace plugin for Claude Code and Claude Desktop. Search academic databases, manage a local document library, and write with automatic APA7 citations.
+A research workspace plugin for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [Claude Desktop](https://claude.ai/download). Search academic databases, manage a local document library, and write with properly formatted citations.
 
 ## What It Does
 
-- **Academic Search** — Search PubMed, arXiv, Semantic Scholar, and CrossRef from a single interface. Results include pre-formatted APA7 citations.
-- **Document Library** — Import PDFs, Word documents, and text files into a local SQLite database with full-text search, collections, and tagging.
-- **Citation-Aware Writing** — Draft prose with inline APA7 citations drawn from your library and academic databases.
-- **Research Agent** — Autonomous multi-step research: decomposes questions, searches databases, follows citation chains, produces cited synthesis.
+- **Academic Search** — Search PubMed, arXiv, Semantic Scholar, and CrossRef from a single interface
+- **Document Library** — Import PDFs, Word documents, and text files into a local SQLite database with full-text search, collections, and tagging
+- **Multi-Style Citations** — Generate citations in APA7, Harvard, Chicago, Vancouver, IEEE, and MLA formats
+- **Citation-Aware Writing** — Draft prose with inline citations drawn from your library and search results
+- **Research Agent** — Autonomous multi-step research: decomposes questions, searches databases, follows citation chains, produces cited synthesis
 
 ## Installation
 
 ### Claude Code (Full Plugin)
 
 ```bash
-# Clone or download the repository
-git clone https://github.com/larrygmaguire/prima-scholar.git
+git clone https://github.com/larrygmaguire-hash/prima-scholar.git
 cd prima-scholar
 
 # Build both MCP servers
 cd mcp-servers/prima-scholar-search-mcp && npm install && npm run build && cd ../..
 cd mcp-servers/prima-scholar-library-mcp && npm install && npm run build && cd ../..
 
-# Load the plugin
-claude --plugin-dir /path/to/prima-scholar
+# Load the plugin (use the path where you cloned it)
+claude --plugin-dir ./prima-scholar
 ```
 
 ### Claude Desktop (MCP Servers Only)
@@ -51,25 +53,40 @@ Add to your Claude Desktop configuration (`claude_desktop_config.json`):
 }
 ```
 
-You can install either server independently — the search server has no dependency on the library server.
+You can install either server independently. The search server has no dependency on the library server.
 
-## Environment Variables
+## Configuration
 
 All optional. The plugin works with zero configuration.
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `PUBMED_API_KEY` | Increases PubMed rate limit from 3/sec to 10/sec | None (3 req/sec) |
-| `SEMANTIC_SCHOLAR_KEY` | Increases Semantic Scholar rate limit | None (100 req/5min) |
-| `CROSSREF_MAILTO` | Enters CrossRef polite pool for higher rate limits | None |
+| `PUBMED_API_KEY` | Increases PubMed rate limit (3/sec to 10/sec) | None |
+| `SEMANTIC_SCHOLAR_KEY` | Increases Semantic Scholar rate limit | None |
+| `CROSSREF_MAILTO` | Enters CrossRef polite pool for better rate limits | None |
 | `RESEARCH_LIBRARY_PATH` | Custom database file location | `~/.research-library/library.db` |
+
+## Citation Styles
+
+PRIMA Scholar supports multiple academic citation formats. Specify your preferred style when searching or writing.
+
+| Style | Example |
+|-------|---------|
+| **APA7** | Dweck, C. S. (2006). *Mindset: The new psychology of success*. Random House. |
+| **Harvard** | Dweck, C.S. (2006) *Mindset: The new psychology of success*. Random House. |
+| **Chicago** | Dweck, Carol S. *Mindset: The New Psychology of Success*. Random House, 2006. |
+| **Vancouver** | Dweck CS. Mindset: the new psychology of success. Random House; 2006. |
+| **IEEE** | C. S. Dweck, *Mindset: The New Psychology of Success*. Random House, 2006. |
+| **MLA** | Dweck, Carol S. *Mindset: The New Psychology of Success*. Random House, 2006. |
+
+Default style is APA7. Set your preference with the `citation_style` parameter on any search or citation tool.
 
 ## Commands (Claude Code)
 
 | Command | Description |
 |---------|-------------|
-| `/scholar [topic]` | Start a research session — search, review, synthesise |
-| `/cite [DOI or title]` | Quick citation lookup → formatted APA7 |
+| `/scholar [topic]` | Start a research session |
+| `/cite [DOI or title]` | Quick citation lookup |
 | `/library [action]` | Library management: import, search, collections, stats |
 
 ## Skills (Claude Code)
@@ -78,18 +95,11 @@ All optional. The plugin works with zero configuration.
 |-------|----------|
 | `researching-topics` | "research [topic]", "find papers on", "literature review" |
 | `managing-research-library` | "import this paper", "search my library", "organise research" |
-| `writing-with-citations` | "write with citations", "draft with references" |
-
-## Agents (Claude Code)
-
-| Agent | Purpose |
-|-------|---------|
-| `research-agent` | Autonomous multi-step research with citation chain analysis |
-| `form-completion-agent` | Fill structured templates from academic sources |
+| `writing-with-citations` | "write with citations", "draft with references", "write in Harvard style" |
 
 ## MCP Tools
 
-### Search Server (23 tools total — 11 search)
+### Search Server (11 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -103,7 +113,7 @@ All optional. The plugin works with zero configuration.
 | `semantic_citations` | Papers that cite a given paper |
 | `semantic_references` | Papers referenced by a given paper |
 | `crossref_search` | Search CrossRef metadata |
-| `crossref_resolve_doi` | Resolve DOI to full metadata + APA7 citation |
+| `crossref_resolve_doi` | Resolve DOI to full metadata and citation |
 
 ### Library Server (12 tools)
 
@@ -126,7 +136,7 @@ All optional. The plugin works with zero configuration.
 
 All APIs are free to use. No accounts or API keys required for basic operation.
 
-| API | Coverage | Rate Limit (free) |
+| API | Coverage | Rate Limit (Free) |
 |-----|----------|-------------------|
 | [PubMed](https://pubmed.ncbi.nlm.nih.gov/) | Biomedical, life sciences | 3 req/sec |
 | [arXiv](https://arxiv.org/) | Physics, maths, CS, biology, finance | 1 req/3sec |
@@ -137,6 +147,14 @@ All APIs are free to use. No accounts or API keys required for basic operation.
 
 - Node.js 18+
 - npm
+
+## Part of the PRIMA Ecosystem
+
+PRIMA Scholar is one of several PRIMA tools for Claude Code:
+
+- **[PRIMA](https://github.com/larrygmaguire-hash/prima-plugin)** — Project recording, indexing, and management
+- **[PRIMA Memory](https://github.com/larrygmaguire-hash/prima-memory)** — Session history and context recovery
+- **PRIMA Scholar** — Academic search and citation management (this plugin)
 
 ## Licence
 
