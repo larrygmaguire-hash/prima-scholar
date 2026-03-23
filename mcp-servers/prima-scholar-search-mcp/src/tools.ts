@@ -31,6 +31,11 @@ export const TOOLS = [
           description:
             "Which databases to search. Default: all four. Specify a subset to narrow scope.",
         },
+        citation_style: {
+          type: "string",
+          description: "Citation format: apa7, harvard, chicago, vancouver, ieee, mla (default: all styles).",
+          enum: ["apa7", "harvard", "chicago", "vancouver", "ieee", "mla"],
+        },
       },
       required: ["query"],
     },
@@ -50,6 +55,11 @@ export const TOOLS = [
         max_results: {
           type: "number",
           description: "Maximum number of results to return. Default 10.",
+        },
+        citation_style: {
+          type: "string",
+          description: "Citation format: apa7, harvard, chicago, vancouver, ieee, mla (default: all styles).",
+          enum: ["apa7", "harvard", "chicago", "vancouver", "ieee", "mla"],
         },
       },
       required: ["query"],
@@ -85,6 +95,11 @@ export const TOOLS = [
           type: "number",
           description: "Maximum number of results to return. Default 10.",
         },
+        citation_style: {
+          type: "string",
+          description: "Citation format: apa7, harvard, chicago, vancouver, ieee, mla (default: all styles).",
+          enum: ["apa7", "harvard", "chicago", "vancouver", "ieee", "mla"],
+        },
       },
       required: ["query"],
     },
@@ -118,6 +133,11 @@ export const TOOLS = [
         max_results: {
           type: "number",
           description: "Maximum number of results to return. Default 10.",
+        },
+        citation_style: {
+          type: "string",
+          description: "Citation format: apa7, harvard, chicago, vancouver, ieee, mla (default: all styles).",
+          enum: ["apa7", "harvard", "chicago", "vancouver", "ieee", "mla"],
         },
       },
       required: ["query"],
@@ -195,6 +215,11 @@ export const TOOLS = [
           type: "number",
           description: "Maximum number of results to return. Default 10.",
         },
+        citation_style: {
+          type: "string",
+          description: "Citation format: apa7, harvard, chicago, vancouver, ieee, mla (default: all styles).",
+          enum: ["apa7", "harvard", "chicago", "vancouver", "ieee", "mla"],
+        },
       },
       required: ["query"],
     },
@@ -210,6 +235,11 @@ export const TOOLS = [
           type: "string",
           description:
             "The DOI to resolve (e.g. '10.1038/nature12373'). Can include or omit the 'https://doi.org/' prefix.",
+        },
+        citation_style: {
+          type: "string",
+          description: "Citation format: apa7, harvard, chicago, vancouver, ieee, mla (default: all styles).",
+          enum: ["apa7", "harvard", "chicago", "vancouver", "ieee", "mla"],
         },
       },
       required: ["doi"],

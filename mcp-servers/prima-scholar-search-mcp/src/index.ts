@@ -22,8 +22,23 @@ import { ArxivClient } from "./arxiv-client.js";
 import { SemanticScholarClient } from "./semantic-scholar-client.js";
 import { CrossRefClient } from "./crossref-client.js";
 import { TOOLS } from "./tools.js";
-import { Paper } from "./types.js";
+import { CitationStyle, Paper } from "./types.js";
 import { deduplicateByDoi } from "./utils.js";
+
+/**
+ * Filter paper citations to a single style if requested,
+ * otherwise return all styles.
+ */
+function filterCitations(paper: Paper, style?: CitationStyle): Paper {
+  if (!style) return paper;
+  const citation = paper.citations[style];
+  return { ...paper, citations: citation ? { [style]: citation } : {} };
+}
+
+function filterPapersCitations(papers: Paper[], style?: CitationStyle): Paper[] {
+  if (!style) return papers;
+  return papers.map(p => filterCitations(p, style));
+}
 
 // Initialise API clients — no required env vars (all optional)
 const pubmedClient = new PubMedClient();
@@ -76,8 +91,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const query = args?.query as string;
         const maxResults = (args?.max_results as number) ?? 10;
         const sources = (args?.sources as SourceName[]) ?? ALL_SOURCES;
+        const citationStyle = args?.citation_style as CitationStyle | undefined;
 
         const results = await aggregatedSearch(query, maxResults, sources);
+        results.papers = filterPapersCitations(results.papers, citationStyle);
         return {
           content: [
             {
@@ -89,9 +106,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "pubmed_search": {
-        const papers = await pubmedClient.search(args?.query as string, {
-          maxResults: (args?.max_results as number) ?? 10,
-        });
+        const citationStyle = args?.citation_style as CitationStyle | undefined;
+        const papers = filterPapersCitations(
+          await pubmedClient.search(args?.query as string, {
+            maxResults: (args?.max_results as number) ?? 10,
+          }),
+          citationStyle
+        );
         return {
           content: [
             {
@@ -119,9 +140,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "arxiv_search": {
-        const papers = await arxivClient.search(args?.query as string, {
-          maxResults: (args?.max_results as number) ?? 10,
-        });
+        const citationStyle = args?.citation_style as CitationStyle | undefined;
+        const papers = filterPapersCitations(
+          await arxivClient.search(args?.query as string, {
+            maxResults: (args?.max_results as number) ?? 10,
+          }),
+          citationStyle
+        );
         return {
           content: [
             {
@@ -149,9 +174,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "semantic_search": {
-        const papers = await semanticClient.search(args?.query as string, {
-          maxResults: (args?.max_results as number) ?? 10,
-        });
+        const citationStyle = args?.citation_style as CitationStyle | undefined;
+        const papers = filterPapersCitations(
+          await semanticClient.search(args?.query as string, {
+            maxResults: (args?.max_results as number) ?? 10,
+          }),
+          citationStyle
+        );
         return {
           content: [
             {
@@ -233,9 +262,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "crossref_search": {
-        const papers = await crossrefClient.search(args?.query as string, {
-          maxResults: (args?.max_results as number) ?? 10,
-        });
+        const citationStyle = args?.citation_style as CitationStyle | undefined;
+        const papers = filterPapersCitations(
+          await crossrefClient.search(args?.query as string, {
+            maxResults: (args?.max_results as number) ?? 10,
+          }),
+          citationStyle
+        );
         return {
           content: [
             {
@@ -251,7 +284,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "crossref_resolve_doi": {
-        const paper = await crossrefClient.resolveDoi(args?.doi as string);
+        const citationStyle = args?.citation_style as CitationStyle | undefined;
+        const paper = filterCitations(
+          await crossrefClient.resolveDoi(args?.doi as string),
+          citationStyle
+        );
         return {
           content: [
             {
@@ -323,6 +360,13 @@ async function aggregatedSearch(
       errors.push(`${source}: ${result.reason?.message ?? String(result.reason)}`);
     }
   });
+
+  // If every source failed, throw rather than returning empty results
+  if (successfulSources.length === 0) {
+    throw new Error(
+      `All sources failed:\n${errors.join("\n")}`
+    );
+  }
 
   // Deduplicate by DOI
   const deduplicated = deduplicateByDoi(allPapers);

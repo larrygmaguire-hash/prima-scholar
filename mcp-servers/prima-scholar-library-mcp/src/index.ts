@@ -131,6 +131,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           );
         }
 
+        // Accept citations as Record<string, string> from search Paper format
+        const rawCitations = args?.citations;
+        let citationsStr: string | null = null;
+        if (rawCitations && typeof rawCitations === "object") {
+          citationsStr = JSON.stringify(rawCitations);
+        }
+
+        const metadata: Record<string, unknown> = {};
+        if (args?.source) metadata.source = args.source as string;
+
         const id = db.insertDocument({
           title,
           authors,
@@ -139,8 +149,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           doi: (args?.doi as string) ?? null,
           sourceUrl: (args?.source_url as string) ?? null,
           fileType: "reference",
-          metadata: args?.source
-            ? JSON.stringify({ source: args.source as string })
+          citations: citationsStr,
+          metadata: Object.keys(metadata).length > 0
+            ? JSON.stringify(metadata)
             : null,
         });
 

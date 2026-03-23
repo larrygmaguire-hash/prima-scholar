@@ -16,6 +16,7 @@ export interface Document {
   dateAdded: string;
   notes: string | null;
   metadata: string | null;     // JSON blob
+  citations: string | null;    // JSON object: Record<string, string> keyed by citation style
 }
 
 export interface Collection {

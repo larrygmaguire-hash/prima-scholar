@@ -8,7 +8,7 @@
 import { XMLParser } from "fast-xml-parser";
 import { Paper, SearchOptions } from "./types.js";
 import { RateLimiter } from "./rate-limiter.js";
-import { formatApa7Citation } from "./utils.js";
+import { formatAllCitations } from "./utils.js";
 
 const BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils";
 
@@ -158,6 +158,13 @@ export class PubMedClient {
 
     // Journal
     const journal = articleData?.Journal?.Title ?? undefined;
+    const journalIssue = articleData?.Journal?.JournalIssue;
+    const volume = journalIssue?.Volume ? String(journalIssue.Volume) : undefined;
+    const issue = journalIssue?.Issue ? String(journalIssue.Issue) : undefined;
+
+    // Pages
+    const paginationStr = articleData?.Pagination?.MedlinePgn;
+    const pages = paginationStr ? String(paginationStr) : undefined;
 
     // DOI — from ArticleIdList or ELocationID
     const doi = this.parseDoi(article);
@@ -168,14 +175,17 @@ export class PubMedClient {
       abstract,
       year,
       journal,
+      volume,
+      issue,
+      pages,
       doi,
       url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
       source: "pubmed",
       sourceId: pmid,
-      apa7Citation: "",
+      citations: {},
     };
 
-    paper.apa7Citation = formatApa7Citation(paper);
+    paper.citations = formatAllCitations(paper);
     return paper;
   }
 

@@ -7,7 +7,7 @@
 
 import { Paper, SearchOptions } from "./types.js";
 import { RateLimiter } from "./rate-limiter.js";
-import { formatApa7Citation } from "./utils.js";
+import { formatAllCitations } from "./utils.js";
 
 const BASE_URL = "https://api.semanticscholar.org/graph/v1";
 const FIELDS = "title,authors,abstract,year,venue,externalIds,citationCount,url";
@@ -165,10 +165,10 @@ export class SemanticScholarClient {
       source: "semantic_scholar",
       sourceId: item.paperId ?? "",
       citationCount: item.citationCount ?? undefined,
-      apa7Citation: "",
+      citations: {},
     };
 
-    paper.apa7Citation = formatApa7Citation(paper);
+    paper.citations = formatAllCitations(paper);
     return paper;
   }
 }

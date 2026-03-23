@@ -8,7 +8,7 @@
 
 import { Paper, SearchOptions } from "./types.js";
 import { RateLimiter } from "./rate-limiter.js";
-import { formatApa7Citation, normaliseDoi } from "./utils.js";
+import { formatAllCitations, normaliseDoi } from "./utils.js";
 
 const BASE_URL = "https://api.crossref.org";
 
@@ -96,20 +96,29 @@ export class CrossRefClient {
     const doi = item.DOI ?? undefined;
     const url = item.URL ?? (doi ? `https://doi.org/${doi}` : "");
 
+    const volume = item.volume ?? undefined;
+    const issue = item.issue ?? undefined;
+    const pages = item.page ?? undefined;
+    const publisher = item.publisher ?? undefined;
+
     const paper: Paper = {
       title,
       authors,
       abstract,
       year,
       journal: journal || undefined,
+      volume,
+      issue,
+      pages,
+      publisher,
       doi,
       url,
       source: "crossref",
       sourceId: doi ?? "",
-      apa7Citation: "",
+      citations: {},
     };
 
-    paper.apa7Citation = formatApa7Citation(paper);
+    paper.citations = formatAllCitations(paper);
     return paper;
   }
 

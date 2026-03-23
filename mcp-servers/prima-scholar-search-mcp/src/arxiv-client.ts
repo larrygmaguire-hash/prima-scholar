@@ -8,7 +8,7 @@
 import { XMLParser } from "fast-xml-parser";
 import { Paper, SearchOptions } from "./types.js";
 import { RateLimiter } from "./rate-limiter.js";
-import { formatApa7Citation } from "./utils.js";
+import { formatAllCitations } from "./utils.js";
 
 const BASE_URL = "http://export.arxiv.org/api/query";
 
@@ -138,10 +138,10 @@ export class ArxivClient {
       source: "arxiv",
       sourceId,
       keywords: keywords.length > 0 ? keywords : undefined,
-      apa7Citation: "",
+      citations: {},
     };
 
-    paper.apa7Citation = formatApa7Citation(paper);
+    paper.citations = formatAllCitations(paper);
     return paper;
   }
 

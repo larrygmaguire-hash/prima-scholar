@@ -79,6 +79,11 @@ export const TOOLS = [
           description:
             "Source database or platform (e.g. PubMed, Semantic Scholar, Google Scholar).",
         },
+        citations: {
+          type: "object",
+          description:
+            "Citation strings keyed by style name (e.g. apa7, harvard, chicago, vancouver, ieee, mla).",
+        },
       },
       required: ["title", "authors"],
     },
