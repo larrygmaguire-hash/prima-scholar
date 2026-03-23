@@ -16,27 +16,23 @@ import type {
   LibraryStats,
 } from "./types.js";
 
-export class LibraryDatabase {
-  private db: Database.Database;
+/**
+ * Schema migration definition.
+ * Each migration has a version number and an array of SQL statements to run.
+ */
+interface Migration {
+  version: number;
+  up: string[];
+}
 
-  constructor(dbPath: string) {
-    // Ensure parent directory exists
-    const dir = path.dirname(dbPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-
-    this.db = new Database(dbPath);
-    this.db.pragma("journal_mode = WAL");
-    this.db.pragma("foreign_keys = ON");
-    this.initialise();
-  }
-
-  /**
-   * Create tables and FTS index if they do not exist.
-   */
-  private initialise(): void {
-    const statements = [
+/**
+ * All schema migrations in sequential order.
+ * Version 1 is the original schema. Add new migrations here as needed.
+ */
+const MIGRATIONS: Migration[] = [
+  {
+    version: 1,
+    up: [
       `CREATE TABLE IF NOT EXISTS documents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
@@ -50,7 +46,8 @@ export class LibraryDatabase {
         file_type TEXT,
         date_added TEXT DEFAULT (datetime('now')),
         notes TEXT,
-        metadata TEXT
+        metadata TEXT,
+        citations TEXT
       )`,
 
       `CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
@@ -99,10 +96,67 @@ export class LibraryDatabase {
         tag_id INTEGER REFERENCES tags(id) ON DELETE CASCADE,
         PRIMARY KEY (document_id, tag_id)
       )`,
-    ];
+    ],
+  },
+  {
+    version: 2,
+    up: [
+      `ALTER TABLE documents ADD COLUMN citations TEXT`,
+    ],
+  },
+];
 
-    for (const sql of statements) {
-      this.db.prepare(sql).run();
+export class LibraryDatabase {
+  private db: Database.Database;
+
+  constructor(dbPath: string) {
+    // Ensure parent directory exists
+    const dir = path.dirname(dbPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    this.db = new Database(dbPath);
+    this.db.pragma("journal_mode = WAL");
+    this.db.pragma("foreign_keys = ON");
+    this.initialise();
+  }
+
+  /**
+   * Initialise the database schema using versioned migrations.
+   *
+   * Creates the schema_version table if it does not exist, checks the
+   * current version, and runs any pending migrations sequentially.
+   */
+  private initialise(): void {
+    // Create version tracking table
+    this.db.prepare(`
+      CREATE TABLE IF NOT EXISTS schema_version (
+        version INTEGER PRIMARY KEY,
+        applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `).run();
+
+    // Determine current schema version
+    const row = this.db.prepare(
+      "SELECT MAX(version) AS current_version FROM schema_version"
+    ).get() as { current_version: number | null } | undefined;
+    const currentVersion = row?.current_version ?? 0;
+
+    // Run pending migrations in a transaction
+    const pendingMigrations = MIGRATIONS.filter((m) => m.version > currentVersion);
+    if (pendingMigrations.length > 0) {
+      const runMigrations = this.db.transaction(() => {
+        for (const migration of pendingMigrations) {
+          for (const sql of migration.up) {
+            this.db.prepare(sql).run();
+          }
+          this.db.prepare(
+            "INSERT INTO schema_version (version) VALUES (?)"
+          ).run(migration.version);
+        }
+      });
+      runMigrations();
     }
   }
 
@@ -111,8 +165,8 @@ export class LibraryDatabase {
    */
   insertDocument(doc: Partial<Document>): number {
     const stmt = this.db.prepare(`
-      INSERT INTO documents (title, authors, abstract, content, year, doi, source_url, file_path, file_type, notes, metadata)
-      VALUES (@title, @authors, @abstract, @content, @year, @doi, @sourceUrl, @filePath, @fileType, @notes, @metadata)
+      INSERT INTO documents (title, authors, abstract, content, year, doi, source_url, file_path, file_type, notes, metadata, citations)
+      VALUES (@title, @authors, @abstract, @content, @year, @doi, @sourceUrl, @filePath, @fileType, @notes, @metadata, @citations)
     `);
 
     const result = stmt.run({
@@ -127,6 +181,7 @@ export class LibraryDatabase {
       fileType: doc.fileType ?? null,
       notes: doc.notes ?? null,
       metadata: doc.metadata ?? null,
+      citations: doc.citations ?? null,
     });
 
     return result.lastInsertRowid as number;
@@ -139,7 +194,7 @@ export class LibraryDatabase {
     const stmt = this.db.prepare(`
       SELECT id, title, authors, abstract, content, year, doi,
              source_url AS sourceUrl, file_path AS filePath, file_type AS fileType,
-             date_added AS dateAdded, notes, metadata
+             date_added AS dateAdded, notes, metadata, citations
       FROM documents WHERE id = ?
     `);
     return (stmt.get(id) as Document) ?? null;
@@ -195,7 +250,7 @@ export class LibraryDatabase {
     const stmt = this.db.prepare(`
       SELECT DISTINCT d.id, d.title, d.authors, d.abstract, d.year, d.doi,
              d.source_url AS sourceUrl, d.file_path AS filePath, d.file_type AS fileType,
-             d.date_added AS dateAdded, d.notes, d.metadata
+             d.date_added AS dateAdded, d.notes, d.metadata, d.citations
       FROM documents d
       ${joins}
       ${where}
