@@ -6,13 +6,13 @@
  * the polite pool for higher rate limits.
  */
 
-import { Paper, SearchOptions } from "./types.js";
+import { Paper, SearchOptions, ScholarClient } from "./types.js";
 import { RateLimiter } from "./rate-limiter.js";
 import { formatAllCitations, normaliseDoi } from "./utils.js";
 
 const BASE_URL = "https://api.crossref.org";
 
-export class CrossRefClient {
+export class CrossRefClient implements ScholarClient {
   private rateLimiter = new RateLimiter(50, 1000);
   private mailto: string | undefined;
 
@@ -53,6 +53,13 @@ export class CrossRefClient {
     const data = await response.json();
     const items = data?.message?.items ?? [];
     return items.map((item: any) => this.mapToPaper(item));
+  }
+
+  /**
+   * Get a single paper by DOI.
+   */
+  async getPaper(id: string): Promise<Paper> {
+    return this.resolveDoi(id);
   }
 
   /**
@@ -101,6 +108,13 @@ export class CrossRefClient {
     const pages = item.page ?? undefined;
     const publisher = item.publisher ?? undefined;
 
+    // CrossRef provides licence metadata — check for OA licences
+    const licences = item.license ?? [];
+    const hasOaLicence = licences.some((l: any) => {
+      const licUrl = l.URL ?? "";
+      return licUrl.includes("creativecommons.org") || licUrl.includes("/open-access");
+    });
+
     const paper: Paper = {
       title,
       authors,
@@ -115,6 +129,9 @@ export class CrossRefClient {
       url,
       source: "crossref",
       sourceId: doi ?? "",
+      openAccess: hasOaLicence,
+      openAccessUrl: hasOaLicence ? url : undefined,
+      fullTextAvailable: false, // CrossRef provides metadata, not full text
       citations: {},
     };
 

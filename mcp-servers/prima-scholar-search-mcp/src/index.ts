@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 /**
- * PRIMA Scholar Search MCP Server
+ * PRIMA Scholar Search MCP Server v2.0.0
  *
  * A Model Context Protocol server for searching academic literature
- * across PubMed, arXiv, Semantic Scholar, and CrossRef.
+ * across 10 databases: PubMed, arXiv, Semantic Scholar, CrossRef,
+ * OpenAlex, CORE, Europe PMC, ERIC, bioRxiv/medRxiv, and DBLP.
+ *
+ * 5-tool surface: wizard, search, get_paper, citations, full_text.
  *
  * @author PRIMA Contributors
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -17,18 +20,24 @@ import {
   ListToolsRequestSchema,
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
+
 import { PubMedClient } from "./pubmed-client.js";
 import { ArxivClient } from "./arxiv-client.js";
 import { SemanticScholarClient } from "./semantic-scholar-client.js";
 import { CrossRefClient } from "./crossref-client.js";
+import { OpenAlexClient } from "./openalex-client.js";
+import { CoreClient } from "./core-client.js";
+import { EuropePmcClient } from "./europepmc-client.js";
+import { EricClient } from "./eric-client.js";
+import { BiorxivClient } from "./biorxiv-client.js";
+import { DblpClient } from "./dblp-client.js";
 import { TOOLS } from "./tools.js";
-import { CitationStyle, Paper } from "./types.js";
+import { CitationStyle, Paper, SourceName, ALL_SOURCES, SearchOptions } from "./types.js";
 import { deduplicateByDoi } from "./utils.js";
+import { runWizard } from "./wizard.js";
 
-/**
- * Filter paper citations to a single style if requested,
- * otherwise return all styles.
- */
+// ── Citation Filtering ───────────────────────────────────────────────
+
 function filterCitations(paper: Paper, style?: CitationStyle): Paper {
   if (!style) return paper;
   const citation = paper.citations[style];
@@ -37,37 +46,47 @@ function filterCitations(paper: Paper, style?: CitationStyle): Paper {
 
 function filterPapersCitations(papers: Paper[], style?: CitationStyle): Paper[] {
   if (!style) return papers;
-  return papers.map(p => filterCitations(p, style));
+  return papers.map((p) => filterCitations(p, style));
 }
 
-// Initialise API clients — no required env vars (all optional)
+// ── Client Initialisation ────────────────────────────────────────────
+
 const pubmedClient = new PubMedClient();
 const arxivClient = new ArxivClient();
 const semanticClient = new SemanticScholarClient();
 const crossrefClient = new CrossRefClient();
+const openalexClient = new OpenAlexClient();
+const coreClient = new CoreClient();
+const europepmcClient = new EuropePmcClient();
+const ericClient = new EricClient();
+const biorxivClient = new BiorxivClient();
+const dblpClient = new DblpClient();
 
-// Source name mapping
-const SOURCE_CLIENTS = {
+// Source routing map
+const SOURCE_CLIENTS: Record<SourceName, { search: (q: string, o?: SearchOptions) => Promise<Paper[]>; getPaper: (id: string) => Promise<Paper> }> = {
   pubmed: pubmedClient,
   arxiv: arxivClient,
   semantic_scholar: semanticClient,
   crossref: crossrefClient,
-} as const;
+  openalex: openalexClient,
+  core: coreClient,
+  europe_pmc: europepmcClient,
+  eric: ericClient,
+  biorxiv: biorxivClient,
+  dblp: dblpClient,
+};
 
-type SourceName = keyof typeof SOURCE_CLIENTS;
+// Sources that require API keys
+const API_KEY_SOURCES: Record<string, { envVar: string; url: string }> = {
+  core: { envVar: "CORE_API_KEY", url: "https://core.ac.uk/services/api" },
+};
 
-const ALL_SOURCES: SourceName[] = [
-  "pubmed",
-  "arxiv",
-  "semantic_scholar",
-  "crossref",
-];
+// ── MCP Server ───────────────────────────────────────────────────────
 
-// Create MCP server
 const server = new Server(
   {
     name: "prima-scholar-search-mcp",
-    version: "1.0.0",
+    version: "2.0.0",
   },
   {
     capabilities: {
@@ -76,111 +95,85 @@ const server = new Server(
   }
 );
 
-// Handle tool listing
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return { tools: TOOLS };
 });
 
-// Handle tool execution
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
     switch (name) {
+      // ── Wizard ───────────────────────────────────────────────
+      case "scholar_wizard": {
+        const query = args?.query as string;
+        if (!query) throw new McpError(ErrorCode.InvalidParams, "query is required");
+
+        const result = runWizard(query);
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      // ── Search ───────────────────────────────────────────────
       case "scholar_search": {
         const query = args?.query as string;
+        if (!query) throw new McpError(ErrorCode.InvalidParams, "query is required");
+
         const maxResults = (args?.max_results as number) ?? 10;
         const sources = (args?.sources as SourceName[]) ?? ALL_SOURCES;
+        const openAccessOnly = (args?.open_access_only as boolean) ?? false;
+        const yearFrom = args?.year_from as number | undefined;
+        const yearTo = args?.year_to as number | undefined;
         const citationStyle = args?.citation_style as CitationStyle | undefined;
 
-        const results = await aggregatedSearch(query, maxResults, sources);
-        results.papers = filterPapersCitations(results.papers, citationStyle);
+        const searchOptions: SearchOptions = {
+          maxResults,
+          yearFrom,
+          yearTo,
+          openAccessOnly,
+        };
+
+        const results = await aggregatedSearch(query, sources, searchOptions);
+
+        if (citationStyle) {
+          results.papers = filterPapersCitations(results.papers, citationStyle);
+        }
+
         return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(results, null, 2),
-            },
-          ],
+          content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
         };
       }
 
-      case "pubmed_search": {
+      // ── Get Paper ────────────────────────────────────────────
+      case "scholar_get_paper": {
+        const id = args?.id as string;
+        if (!id) throw new McpError(ErrorCode.InvalidParams, "id is required");
         const citationStyle = args?.citation_style as CitationStyle | undefined;
-        const papers = filterPapersCitations(
-          await pubmedClient.search(args?.query as string, {
-            maxResults: (args?.max_results as number) ?? 10,
-          }),
-          citationStyle
-        );
+
+        const paper = await routeGetPaper(id);
+        const filtered = citationStyle ? filterCitations(paper, citationStyle) : paper;
+
         return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                { papers, totalResults: papers.length, source: "pubmed" },
-                null,
-                2
-              ),
-            },
-          ],
+          content: [{ type: "text", text: JSON.stringify(filtered, null, 2) }],
         };
       }
 
-      case "pubmed_get_paper": {
-        const paper = await pubmedClient.getPaper(args?.pmid as string);
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(paper, null, 2),
-            },
-          ],
-        };
-      }
+      // ── Citations ────────────────────────────────────────────
+      case "scholar_citations": {
+        const paperId = args?.paper_id as string;
+        if (!paperId) throw new McpError(ErrorCode.InvalidParams, "paper_id is required");
 
-      case "arxiv_search": {
-        const citationStyle = args?.citation_style as CitationStyle | undefined;
-        const papers = filterPapersCitations(
-          await arxivClient.search(args?.query as string, {
-            maxResults: (args?.max_results as number) ?? 10,
-          }),
-          citationStyle
-        );
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                { papers, totalResults: papers.length, source: "arxiv" },
-                null,
-                2
-              ),
-            },
-          ],
-        };
-      }
+        const direction = (args?.direction as string) ?? "citations";
+        const maxResults = (args?.max_results as number) ?? 10;
 
-      case "arxiv_get_paper": {
-        const paper = await arxivClient.getPaper(args?.arxiv_id as string);
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(paper, null, 2),
-            },
-          ],
-        };
-      }
+        let papers: Paper[];
+        if (direction === "references") {
+          papers = await semanticClient.getReferences(paperId, { maxResults });
+        } else {
+          papers = await semanticClient.getCitations(paperId, { maxResults });
+        }
 
-      case "semantic_search": {
-        const citationStyle = args?.citation_style as CitationStyle | undefined;
-        const papers = filterPapersCitations(
-          await semanticClient.search(args?.query as string, {
-            maxResults: (args?.max_results as number) ?? 10,
-          }),
-          citationStyle
-        );
         return {
           content: [
             {
@@ -189,6 +182,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 {
                   papers,
                   totalResults: papers.length,
+                  direction,
                   source: "semantic_scholar",
                 },
                 null,
@@ -199,103 +193,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case "semantic_get_paper": {
-        const paper = await semanticClient.getPaper(
-          args?.paper_id as string
-        );
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(paper, null, 2),
-            },
-          ],
-        };
-      }
+      // ── Full Text ────────────────────────────────────────────
+      case "scholar_full_text": {
+        const id = args?.id as string;
+        if (!id) throw new McpError(ErrorCode.InvalidParams, "id is required");
 
-      case "semantic_citations": {
-        const papers = await semanticClient.getCitations(
-          args?.paper_id as string,
-          { maxResults: (args?.max_results as number) ?? 10 }
-        );
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  papers,
-                  totalResults: papers.length,
-                  source: "semantic_scholar",
-                  type: "citations",
-                },
-                null,
-                2
-              ),
-            },
-          ],
-        };
-      }
+        const fullText = await retrieveFullText(id);
 
-      case "semantic_references": {
-        const papers = await semanticClient.getReferences(
-          args?.paper_id as string,
-          { maxResults: (args?.max_results as number) ?? 10 }
-        );
         return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  papers,
-                  totalResults: papers.length,
-                  source: "semantic_scholar",
-                  type: "references",
-                },
-                null,
-                2
-              ),
-            },
-          ],
-        };
-      }
-
-      case "crossref_search": {
-        const citationStyle = args?.citation_style as CitationStyle | undefined;
-        const papers = filterPapersCitations(
-          await crossrefClient.search(args?.query as string, {
-            maxResults: (args?.max_results as number) ?? 10,
-          }),
-          citationStyle
-        );
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                { papers, totalResults: papers.length, source: "crossref" },
-                null,
-                2
-              ),
-            },
-          ],
-        };
-      }
-
-      case "crossref_resolve_doi": {
-        const citationStyle = args?.citation_style as CitationStyle | undefined;
-        const paper = filterCitations(
-          await crossrefClient.resolveDoi(args?.doi as string),
-          citationStyle
-        );
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(paper, null, 2),
-            },
-          ],
+          content: [{ type: "text", text: JSON.stringify(fullText, null, 2) }],
         };
       }
 
@@ -303,46 +209,54 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
     }
   } catch (error) {
-    if (error instanceof McpError) {
-      throw error;
-    }
+    if (error instanceof McpError) throw error;
     const message = error instanceof Error ? error.message : String(error);
-    throw new McpError(
-      ErrorCode.InternalError,
-      `Scholar search error: ${message}`
-    );
+    throw new McpError(ErrorCode.InternalError, `Scholar search error: ${message}`);
   }
 });
 
-/**
- * Aggregated search across multiple academic databases.
- *
- * Fans out to all requested sources in parallel using Promise.allSettled,
- * merges results, deduplicates by DOI, and sorts by citation count
- * (descending, nulls last).
- */
+// ── Aggregated Search ────────────────────────────────────────────────
+
 async function aggregatedSearch(
   query: string,
-  maxResults: number,
-  sources: SourceName[]
+  sources: SourceName[],
+  options: SearchOptions
 ): Promise<{
   papers: Paper[];
   totalResults: number;
+  openAccessCount: number;
+  gatedCount: number;
   query: string;
   sources: string[];
   errors?: string[];
+  missingApiKeys?: string[];
 }> {
-  const searchPromises = sources.map(async (source) => {
-    switch (source) {
-      case "pubmed":
-        return pubmedClient.search(query, { maxResults });
-      case "arxiv":
-        return arxivClient.search(query, { maxResults });
-      case "semantic_scholar":
-        return semanticClient.search(query, { maxResults });
-      case "crossref":
-        return crossrefClient.search(query, { maxResults });
+  const activeSources: SourceName[] = [];
+  const missingApiKeys: string[] = [];
+
+  // Check which sources are available
+  for (const source of sources) {
+    const keyInfo = API_KEY_SOURCES[source];
+    if (keyInfo && !process.env[keyInfo.envVar]) {
+      missingApiKeys.push(
+        `${source}: API key not configured. Set ${keyInfo.envVar} in your environment. ` +
+        `Get a free key at ${keyInfo.url}`
+      );
+      continue;
     }
+    activeSources.push(source);
+  }
+
+  if (activeSources.length === 0) {
+    throw new Error(
+      `No sources available. Missing API keys:\n${missingApiKeys.join("\n")}`
+    );
+  }
+
+  // Fan out to all active sources in parallel
+  const searchPromises = activeSources.map(async (source) => {
+    const client = SOURCE_CLIENTS[source];
+    return client.search(query, options);
   });
 
   const results = await Promise.allSettled(searchPromises);
@@ -352,7 +266,7 @@ async function aggregatedSearch(
   const errors: string[] = [];
 
   results.forEach((result, index) => {
-    const source = sources[index];
+    const source = activeSources[index];
     if (result.status === "fulfilled") {
       allPapers.push(...result.value);
       successfulSources.push(source);
@@ -361,37 +275,151 @@ async function aggregatedSearch(
     }
   });
 
-  // If every source failed, throw rather than returning empty results
   if (successfulSources.length === 0) {
-    throw new Error(
-      `All sources failed:\n${errors.join("\n")}`
-    );
+    throw new Error(`All sources failed:\n${errors.join("\n")}`);
   }
 
   // Deduplicate by DOI
-  const deduplicated = deduplicateByDoi(allPapers);
+  let deduplicated = deduplicateByDoi(allPapers);
 
-  // Sort by citation count descending, nulls last
+  // Filter to OA only if requested
+  if (options.openAccessOnly) {
+    deduplicated = deduplicated.filter((p) => p.openAccess);
+  }
+
+  // Sort: OA first, then by citation count descending
   deduplicated.sort((a, b) => {
+    // OA papers first
+    if (a.openAccess && !b.openAccess) return -1;
+    if (!a.openAccess && b.openAccess) return 1;
+    // Then by citation count
     const aCount = a.citationCount ?? -1;
     const bCount = b.citationCount ?? -1;
     return bCount - aCount;
   });
 
+  const openAccessCount = deduplicated.filter((p) => p.openAccess).length;
+  const gatedCount = deduplicated.length - openAccessCount;
+
   return {
     papers: deduplicated,
     totalResults: deduplicated.length,
+    openAccessCount,
+    gatedCount,
     query,
     sources: successfulSources,
     ...(errors.length > 0 ? { errors } : {}),
+    ...(missingApiKeys.length > 0 ? { missingApiKeys } : {}),
   };
 }
 
-// Start server
+// ── Paper ID Routing ─────────────────────────────────────────────────
+
+async function routeGetPaper(id: string): Promise<Paper> {
+  // Route based on ID format
+  if (id.startsWith("PMID:")) {
+    return pubmedClient.getPaper(id.replace("PMID:", ""));
+  }
+  if (id.startsWith("ARXIV:") || id.startsWith("arxiv:")) {
+    return arxivClient.getPaper(id.replace(/^ARXIV:|^arxiv:/, ""));
+  }
+  if (id.startsWith("W") && /^W\d+$/.test(id)) {
+    return openalexClient.getPaper(id);
+  }
+  if (id.startsWith("https://openalex.org/")) {
+    return openalexClient.getPaper(id);
+  }
+  if (/^(EJ|ED)\d+$/.test(id)) {
+    return ericClient.getPaper(id);
+  }
+  if (id.startsWith("PMC")) {
+    return europepmcClient.getPaper(id);
+  }
+
+  // DOI — try Semantic Scholar first (has citation data), fall back to CrossRef
+  if (id.startsWith("DOI:") || id.startsWith("doi:") || id.includes("10.")) {
+    const doiId = id.replace(/^DOI:|^doi:/, "").trim();
+    try {
+      return await semanticClient.getPaper(`DOI:${doiId}`);
+    } catch {
+      return await crossrefClient.resolveDoi(doiId);
+    }
+  }
+
+  // Default: try Semantic Scholar (accepts its own IDs)
+  return semanticClient.getPaper(id);
+}
+
+// ── Full Text Retrieval ──────────────────────────────────────────────
+
+async function retrieveFullText(id: string): Promise<{
+  fullText?: string;
+  downloadUrl?: string;
+  source: string;
+  message?: string;
+}> {
+  // Try CORE first (has full-text API)
+  if (coreClient.isConfigured()) {
+    try {
+      const coreId = id.replace(/^CORE:/, "");
+      const text = await coreClient.getFullText(coreId);
+      if (text) {
+        return { fullText: text, source: "core" };
+      }
+    } catch {
+      // Fall through to Europe PMC
+    }
+  }
+
+  // Try Europe PMC for PMC content
+  if (id.startsWith("PMC") || id.startsWith("PMID:") || id.includes("10.")) {
+    try {
+      const paper = await europepmcClient.getPaper(id.replace("PMID:", ""));
+      if (paper.fullTextAvailable && paper.openAccessUrl) {
+        return {
+          downloadUrl: paper.openAccessUrl,
+          source: "europe_pmc",
+          message: "Full text available via Europe PMC. Use the downloadUrl to access.",
+        };
+      }
+    } catch {
+      // Fall through
+    }
+  }
+
+  // Try arXiv (always has PDF)
+  if (id.startsWith("ARXIV:") || id.startsWith("arxiv:") || id.match(/^\d{4}\.\d+/)) {
+    const arxivId = id.replace(/^ARXIV:|^arxiv:/, "");
+    return {
+      downloadUrl: `https://arxiv.org/pdf/${arxivId}`,
+      source: "arxiv",
+      message: "PDF available from arXiv.",
+    };
+  }
+
+  // Try bioRxiv/medRxiv
+  if (id.includes("10.1101/")) {
+    return {
+      downloadUrl: `https://doi.org/${id}`,
+      source: "biorxiv",
+      message: "Preprint available from bioRxiv/medRxiv.",
+    };
+  }
+
+  return {
+    source: "none",
+    message:
+      "Full text not available through PRIMA Scholar. " +
+      "The paper may be behind a paywall. Check your institutional access or the publisher's website.",
+  };
+}
+
+// ── Start Server ─────────────────────────────────────────────────────
+
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("PRIMA Scholar Search MCP Server running on stdio");
+  console.error("PRIMA Scholar Search MCP Server v2.0.0 running on stdio");
 }
 
 main().catch((error) => {

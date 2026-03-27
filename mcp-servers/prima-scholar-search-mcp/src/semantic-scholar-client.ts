@@ -5,14 +5,14 @@
  * and references. Optional API key via SEMANTIC_SCHOLAR_KEY env var.
  */
 
-import { Paper, SearchOptions } from "./types.js";
+import { Paper, SearchOptions, ScholarClient } from "./types.js";
 import { RateLimiter } from "./rate-limiter.js";
 import { formatAllCitations } from "./utils.js";
 
 const BASE_URL = "https://api.semanticscholar.org/graph/v1";
-const FIELDS = "title,authors,abstract,year,venue,externalIds,citationCount,url";
+const FIELDS = "title,authors,abstract,year,venue,externalIds,citationCount,url,isOpenAccess,openAccessPdf";
 
-export class SemanticScholarClient {
+export class SemanticScholarClient implements ScholarClient {
   private rateLimiter: RateLimiter;
   private apiKey: string | undefined;
 
@@ -154,6 +154,9 @@ export class SemanticScholarClient {
     const doi = item.externalIds?.DOI ?? undefined;
     const url = item.url ?? (doi ? `https://doi.org/${doi}` : "");
 
+    const isOa = item.isOpenAccess ?? false;
+    const oaPdfUrl = item.openAccessPdf?.url ?? undefined;
+
     const paper: Paper = {
       title: item.title ?? "",
       authors: (item.authors ?? []).map((a: any) => ({ name: a.name ?? "" })),
@@ -165,6 +168,9 @@ export class SemanticScholarClient {
       source: "semantic_scholar",
       sourceId: item.paperId ?? "",
       citationCount: item.citationCount ?? undefined,
+      openAccess: isOa,
+      openAccessUrl: oaPdfUrl,
+      fullTextAvailable: !!oaPdfUrl,
       citations: {},
     };
 

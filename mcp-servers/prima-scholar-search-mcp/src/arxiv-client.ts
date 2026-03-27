@@ -6,13 +6,13 @@
  */
 
 import { XMLParser } from "fast-xml-parser";
-import { Paper, SearchOptions } from "./types.js";
+import { Paper, SearchOptions, ScholarClient } from "./types.js";
 import { RateLimiter } from "./rate-limiter.js";
 import { formatAllCitations } from "./utils.js";
 
 const BASE_URL = "http://export.arxiv.org/api/query";
 
-export class ArxivClient {
+export class ArxivClient implements ScholarClient {
   // arXiv requests 1 request per 3 seconds
   private rateLimiter = new RateLimiter(1, 3000);
   private xmlParser: XMLParser;
@@ -127,6 +127,7 @@ export class ArxivClient {
     // Keywords from category terms
     const keywords = this.extractKeywords(entry);
 
+    // All arXiv papers are open access preprints
     const paper: Paper = {
       title,
       authors,
@@ -138,6 +139,9 @@ export class ArxivClient {
       source: "arxiv",
       sourceId,
       keywords: keywords.length > 0 ? keywords : undefined,
+      openAccess: true,
+      openAccessUrl: url,
+      fullTextAvailable: true,
       citations: {},
     };
 

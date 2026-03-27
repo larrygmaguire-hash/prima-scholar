@@ -6,13 +6,13 @@
  */
 
 import { XMLParser } from "fast-xml-parser";
-import { Paper, SearchOptions } from "./types.js";
+import { Paper, SearchOptions, ScholarClient } from "./types.js";
 import { RateLimiter } from "./rate-limiter.js";
 import { formatAllCitations } from "./utils.js";
 
 const BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils";
 
-export class PubMedClient {
+export class PubMedClient implements ScholarClient {
   private rateLimiter: RateLimiter;
   private apiKey: string | undefined;
   private xmlParser: XMLParser;
@@ -169,6 +169,8 @@ export class PubMedClient {
     // DOI — from ArticleIdList or ELocationID
     const doi = this.parseDoi(article);
 
+    // PubMed does not directly indicate OA status in efetch XML.
+    // PMC articles are generally OA; flag conservatively as unknown.
     const paper: Paper = {
       title,
       authors,
@@ -182,6 +184,9 @@ export class PubMedClient {
       url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
       source: "pubmed",
       sourceId: pmid,
+      openAccess: false,
+      openAccessUrl: undefined,
+      fullTextAvailable: false,
       citations: {},
     };
 

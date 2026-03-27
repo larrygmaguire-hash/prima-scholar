@@ -1,15 +1,40 @@
 /**
- * MCP Tool Definitions for PRIMA Scholar Search.
+ * MCP Tool Definitions for PRIMA Scholar Search v2.
  *
- * Each tool defines its name, description, and input schema.
- * Read-only tools for academic search across multiple APIs.
+ * Five tools: wizard, search, get_paper, citations, full_text.
+ * All backend routing happens inside the server, not at the tool level.
  */
 
 export const TOOLS = [
   {
+    name: "scholar_wizard",
+    description:
+      "Analyse a research query and generate structured guidance questions before searching. " +
+      "Returns detected disciplines, suggested sources, and questions for the user (discipline focus, " +
+      "open access preference, date range, preprint inclusion). Call this BEFORE scholar_search " +
+      "to help the user refine their search. If the user has not been through the wizard, ask them: " +
+      "(1) discipline, (2) open access preference, (3) date range, (4) preprint preference — before calling scholar_search.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "The user's raw research query or topic.",
+        },
+      },
+      required: ["query"],
+    },
+  },
+  {
     name: "scholar_search",
     description:
-      "Search across multiple academic databases simultaneously (PubMed, arXiv, Semantic Scholar, CrossRef). Returns deduplicated results sorted by citation count. Use this for broad literature discovery.",
+      "Search across multiple academic databases simultaneously. Returns deduplicated results " +
+      "sorted by open access status (OA first) then citation count. Each result includes an " +
+      "openAccess flag and openAccessUrl where available. Searches up to 10 databases: PubMed, " +
+      "arXiv, Semantic Scholar, CrossRef, OpenAlex, CORE, Europe PMC, ERIC, bioRxiv/medRxiv, and DBLP. " +
+      "IMPORTANT: Before calling this tool, the user should have been guided through scholar_wizard " +
+      "or asked: (1) their discipline, (2) whether they want open access only, (3) date range, " +
+      "(4) whether to include preprints.",
     inputSchema: {
       type: "object",
       properties: {
@@ -20,45 +45,39 @@ export const TOOLS = [
         max_results: {
           type: "number",
           description:
-            "Maximum results per source. Default 10. Total results may be up to max_results × number of sources before deduplication.",
+            "Maximum results per source. Default 10. Total results may be higher before deduplication.",
         },
         sources: {
           type: "array",
           items: {
             type: "string",
-            enum: ["pubmed", "arxiv", "semantic_scholar", "crossref"],
+            enum: [
+              "pubmed", "arxiv", "semantic_scholar", "crossref",
+              "openalex", "core", "europe_pmc", "eric", "biorxiv", "dblp",
+            ],
           },
           description:
-            "Which databases to search. Default: all four. Specify a subset to narrow scope.",
+            "Which databases to search. Default: determined by wizard or all available. " +
+            "Specify a subset to narrow scope.",
+        },
+        open_access_only: {
+          type: "boolean",
+          description:
+            "If true, only return open access papers. If false (default), return all papers " +
+            "with OA papers sorted first and gated papers labelled as secondary.",
+        },
+        year_from: {
+          type: "number",
+          description: "Earliest publication year to include. Optional.",
+        },
+        year_to: {
+          type: "number",
+          description: "Latest publication year to include. Optional.",
         },
         citation_style: {
-          type: "string",
-          description: "Citation format: apa7, harvard, chicago, vancouver, ieee, mla (default: all styles).",
-          enum: ["apa7", "harvard", "chicago", "vancouver", "ieee", "mla"],
-        },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    name: "pubmed_search",
-    description:
-      "Search PubMed for biomedical and life sciences literature. Supports PubMed query syntax including MeSH terms, field tags, and boolean operators.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: {
           type: "string",
           description:
-            "PubMed search query. Supports field tags like [Title], [Author], [MeSH Terms] and boolean operators AND, OR, NOT.",
-        },
-        max_results: {
-          type: "number",
-          description: "Maximum number of results to return. Default 10.",
-        },
-        citation_style: {
-          type: "string",
-          description: "Citation format: apa7, harvard, chicago, vancouver, ieee, mla (default: all styles).",
+            "Citation format: apa7, harvard, chicago, vancouver, ieee, mla. Default: all styles returned.",
           enum: ["apa7", "harvard", "chicago", "vancouver", "ieee", "mla"],
         },
       },
@@ -66,103 +85,37 @@ export const TOOLS = [
     },
   },
   {
-    name: "pubmed_get_paper",
+    name: "scholar_get_paper",
     description:
-      "Get full metadata for a single PubMed article by its PMID. Returns title, authors, abstract, journal, DOI, and APA7 citation.",
+      "Get full metadata for a single paper by its identifier. Accepts DOIs, PubMed IDs (PMID:xxx), " +
+      "arXiv IDs (ARXIV:xxx), Semantic Scholar IDs, OpenAlex IDs (W-prefix or URL), CORE IDs, " +
+      "Europe PMC IDs, ERIC IDs, and DBLP keys. The server automatically routes to the correct backend.",
     inputSchema: {
       type: "object",
       properties: {
-        pmid: {
-          type: "string",
-          description: "PubMed ID (numeric string, e.g. '38123456').",
-        },
-      },
-      required: ["pmid"],
-    },
-  },
-  {
-    name: "arxiv_search",
-    description:
-      "Search arXiv for preprints in physics, mathematics, computer science, quantitative biology, quantitative finance, statistics, and other fields.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: {
-          type: "string",
-          description: "Search query for arXiv papers.",
-        },
-        max_results: {
-          type: "number",
-          description: "Maximum number of results to return. Default 10.",
-        },
-        citation_style: {
-          type: "string",
-          description: "Citation format: apa7, harvard, chicago, vancouver, ieee, mla (default: all styles).",
-          enum: ["apa7", "harvard", "chicago", "vancouver", "ieee", "mla"],
-        },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    name: "arxiv_get_paper",
-    description:
-      "Get full metadata for a single arXiv paper by its arXiv ID. Returns title, authors, abstract, categories, and APA7 citation.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        arxiv_id: {
-          type: "string",
-          description: "arXiv paper ID (e.g. '2301.12345' or 'cs.AI/0301001').",
-        },
-      },
-      required: ["arxiv_id"],
-    },
-  },
-  {
-    name: "semantic_search",
-    description:
-      "Search Semantic Scholar's academic graph for papers across all disciplines. Returns citation counts and links to the Semantic Scholar knowledge graph.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: {
-          type: "string",
-          description: "Search query for academic papers.",
-        },
-        max_results: {
-          type: "number",
-          description: "Maximum number of results to return. Default 10.",
-        },
-        citation_style: {
-          type: "string",
-          description: "Citation format: apa7, harvard, chicago, vancouver, ieee, mla (default: all styles).",
-          enum: ["apa7", "harvard", "chicago", "vancouver", "ieee", "mla"],
-        },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    name: "semantic_get_paper",
-    description:
-      "Get full metadata for a single paper from Semantic Scholar. Accepts multiple ID formats: Semantic Scholar ID, DOI:10.xxx/xxx, ARXIV:2301.12345, or PMID:38123456.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        paper_id: {
+        id: {
           type: "string",
           description:
-            "Paper identifier. Can be a Semantic Scholar ID, DOI (prefix with 'DOI:'), arXiv ID (prefix with 'ARXIV:'), or PubMed ID (prefix with 'PMID:').",
+            "Paper identifier. Formats: DOI (10.xxx/xxx), PMID:38123456, ARXIV:2301.12345, " +
+            "Semantic Scholar ID, OpenAlex ID (W1234567890), CORE ID, ERIC ID (EJ/ED number), " +
+            "DBLP key. Plain DOIs are also accepted without a prefix.",
+        },
+        citation_style: {
+          type: "string",
+          description:
+            "Citation format: apa7, harvard, chicago, vancouver, ieee, mla. Default: all styles.",
+          enum: ["apa7", "harvard", "chicago", "vancouver", "ieee", "mla"],
         },
       },
-      required: ["paper_id"],
+      required: ["id"],
     },
   },
   {
-    name: "semantic_citations",
+    name: "scholar_citations",
     description:
-      "Get papers that cite the given paper. Useful for forward citation tracking — finding newer work that builds on a known paper.",
+      "Get papers that cite or are referenced by a given paper. Useful for forward citation " +
+      "tracking (finding newer work that builds on a known paper) and backward citation tracking " +
+      "(finding the foundational work a paper builds on). Uses Semantic Scholar and OpenAlex citation graphs.",
     inputSchema: {
       type: "object",
       properties: {
@@ -171,78 +124,38 @@ export const TOOLS = [
           description:
             "Paper identifier (Semantic Scholar ID, DOI:xxx, ARXIV:xxx, or PMID:xxx).",
         },
+        direction: {
+          type: "string",
+          enum: ["citations", "references"],
+          description:
+            "Direction: 'citations' for papers citing this one (forward), " +
+            "'references' for papers this one cites (backward). Default: citations.",
+        },
         max_results: {
           type: "number",
-          description: "Maximum number of citing papers to return. Default 10.",
+          description: "Maximum number of results. Default 10.",
         },
       },
       required: ["paper_id"],
     },
   },
   {
-    name: "semantic_references",
+    name: "scholar_full_text",
     description:
-      "Get papers referenced by the given paper. Useful for backward citation tracking — finding the foundational work a paper builds on.",
+      "Retrieve the full text of an open access paper where available. Queries CORE and Europe PMC " +
+      "for full-text content. Returns the text content or a direct download URL. Only works for papers " +
+      "that are flagged as fullTextAvailable in search results.",
     inputSchema: {
       type: "object",
       properties: {
-        paper_id: {
+        id: {
           type: "string",
           description:
-            "Paper identifier (Semantic Scholar ID, DOI:xxx, ARXIV:xxx, or PMID:xxx).",
-        },
-        max_results: {
-          type: "number",
-          description:
-            "Maximum number of referenced papers to return. Default 10.",
+            "Paper identifier — CORE ID, PMC ID, DOI, or any ID from a search result " +
+            "where fullTextAvailable was true.",
         },
       },
-      required: ["paper_id"],
-    },
-  },
-  {
-    name: "crossref_search",
-    description:
-      "Search CrossRef for scholarly works by metadata. CrossRef indexes DOIs and metadata from most major publishers worldwide.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: {
-          type: "string",
-          description: "Search query for scholarly works.",
-        },
-        max_results: {
-          type: "number",
-          description: "Maximum number of results to return. Default 10.",
-        },
-        citation_style: {
-          type: "string",
-          description: "Citation format: apa7, harvard, chicago, vancouver, ieee, mla (default: all styles).",
-          enum: ["apa7", "harvard", "chicago", "vancouver", "ieee", "mla"],
-        },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    name: "crossref_resolve_doi",
-    description:
-      "Resolve a DOI to its full metadata via CrossRef. Returns title, authors, journal, publication date, abstract (if available), and APA7 citation.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        doi: {
-          type: "string",
-          description:
-            "The DOI to resolve (e.g. '10.1038/nature12373'). Can include or omit the 'https://doi.org/' prefix.",
-        },
-        citation_style: {
-          type: "string",
-          description: "Citation format: apa7, harvard, chicago, vancouver, ieee, mla (default: all styles).",
-          enum: ["apa7", "harvard", "chicago", "vancouver", "ieee", "mla"],
-        },
-      },
-      required: ["doi"],
+      required: ["id"],
     },
   },
 ];

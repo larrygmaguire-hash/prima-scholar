@@ -1,16 +1,35 @@
 ![PRIMA Scholar](assets/prima-scholar-brand-image.png)
 
-# PRIMA Scholar
+# PRIMA Scholar v2.0.0
 
-A research workspace plugin for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [Claude Desktop](https://claude.ai/download). Search academic databases, manage a local document library, and write with properly formatted citations.
+A research workspace plugin for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [Claude Desktop](https://claude.ai/download). Search 10 academic databases, manage a local document library, and write with properly formatted citations.
 
 ## What It Does
 
-- **Academic Search** — Search PubMed, arXiv, Semantic Scholar, and CrossRef from a single interface
-- **Document Library** — Import PDFs, Word documents, and text files into a local SQLite database with full-text search, collections, and tagging
-- **Multi-Style Citations** — Generate citations in APA7, Harvard, Chicago, Vancouver, IEEE, and MLA formats
-- **Citation-Aware Writing** — Draft prose with inline citations drawn from your library and search results
-- **Research Agent** — Autonomous multi-step research: decomposes questions, searches databases, follows citation chains, produces cited synthesis
+- **Academic Search** -- Search PubMed, arXiv, Semantic Scholar, CrossRef, OpenAlex, CORE, Europe PMC, ERIC, bioRxiv/medRxiv, and DBLP from a single interface
+- **Search Wizard** -- Analyses your query, detects your discipline, and recommends the best databases to search before you run a query
+- **Open Access First** -- Every result shows whether it is open access or gated. OA papers are prioritised in results. Filter to OA-only with a single parameter
+- **Full-Text Retrieval** -- Fetch the full text of open access papers directly from CORE, Europe PMC, arXiv, and bioRxiv
+- **Document Library** -- Import PDFs, Word documents, and text files into a local SQLite database with full-text search, collections, and tagging
+- **Multi-Style Citations** -- Generate citations in APA7, Harvard, Chicago, Vancouver, IEEE, and MLA formats
+- **Citation Tracking** -- Follow citation chains forward (who cited this paper?) and backward (what does it cite?)
+- **Citation-Aware Writing** -- Draft prose with inline citations drawn from your library and search results
+- **Research Agent** -- Autonomous multi-step research: decomposes questions, searches databases, follows citation chains, produces cited synthesis
+
+## Databases
+
+| Database | Coverage | Auth | OA Info |
+|----------|----------|------|---------|
+| **[OpenAlex](https://openalex.org/)** | 250M+ works, all disciplines | No (polite pool with email) | OA status per paper |
+| **[PubMed](https://pubmed.ncbi.nlm.nih.gov/)** | Biomedical, life sciences | Optional API key | Varies |
+| **[arXiv](https://arxiv.org/)** | Physics, maths, CS, biology, finance, stats | No | All OA (preprints) |
+| **[Semantic Scholar](https://www.semanticscholar.org/)** | All disciplines + citation graph | Optional API key | OA status per paper |
+| **[CrossRef](https://www.crossref.org/)** | DOI metadata, all disciplines | No (polite pool with email) | OA via licence metadata |
+| **[CORE](https://core.ac.uk/)** | 300M+ open access papers | Free API key required | All OA |
+| **[Europe PMC](https://europepmc.org/)** | Biomedical + European research council | No | OA status per paper |
+| **[ERIC](https://eric.ed.gov/)** | Education research | No | Full text for many |
+| **[bioRxiv/medRxiv](https://www.biorxiv.org/)** | Biology and medicine preprints | No | All OA (preprints) |
+| **[DBLP](https://dblp.org/)** | Computer science bibliography | No | Metadata only |
 
 ## Installation
 
@@ -39,7 +58,9 @@ Add to your Claude Desktop configuration (`claude_desktop_config.json`):
       "command": "node",
       "args": ["/path/to/prima-scholar/mcp-servers/prima-scholar-search-mcp/build/index.js"],
       "env": {
-        "CROSSREF_MAILTO": "your@email.com"
+        "OPENALEX_MAILTO": "your@email.com",
+        "CROSSREF_MAILTO": "your@email.com",
+        "CORE_API_KEY": "your-core-api-key"
       }
     },
     "prima-scholar-library": {
@@ -57,14 +78,18 @@ You can install either server independently. The search server has no dependency
 
 ## Configuration
 
-All optional. The plugin works with zero configuration.
+All environment variables are optional except `CORE_API_KEY` (required only if you want to search CORE). The plugin works with zero configuration across the other 9 databases.
 
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `PUBMED_API_KEY` | Increases PubMed rate limit (3/sec to 10/sec) | None |
-| `SEMANTIC_SCHOLAR_KEY` | Increases Semantic Scholar rate limit | None |
-| `CROSSREF_MAILTO` | Enters CrossRef polite pool for better rate limits | None |
-| `RESEARCH_LIBRARY_PATH` | Custom database file location | `~/.research-library/library.db` |
+| Variable | Purpose | How to Get |
+|----------|---------|------------|
+| `OPENALEX_MAILTO` | Polite pool for OpenAlex (higher rate limits) | Use your email address |
+| `CROSSREF_MAILTO` | Polite pool for CrossRef (higher rate limits) | Use your email address |
+| `PUBMED_API_KEY` | Higher PubMed rate limit (3/sec to 10/sec) | https://www.ncbi.nlm.nih.gov/account/ |
+| `SEMANTIC_SCHOLAR_KEY` | Higher Semantic Scholar rate limit | https://www.semanticscholar.org/product/api |
+| `CORE_API_KEY` | Required to search CORE (free) | https://core.ac.uk/services/api |
+| `RESEARCH_LIBRARY_PATH` | Custom database file location | Default: `~/.research-library/library.db` |
+
+API keys are stored in your local environment. They are never committed to code or transmitted beyond the API they authenticate with.
 
 ## Citation Styles
 
@@ -99,21 +124,15 @@ Default style is APA7. Set your preference with the `citation_style` parameter o
 
 ## MCP Tools
 
-### Search Server (11 tools)
+### Search Server (5 tools)
 
 | Tool | Description |
 |------|-------------|
-| `scholar_search` | Unified search across all APIs with deduplication |
-| `pubmed_search` | Search PubMed biomedical literature |
-| `pubmed_get_paper` | Get paper details by PMID |
-| `arxiv_search` | Search arXiv preprints |
-| `arxiv_get_paper` | Get paper by arXiv ID |
-| `semantic_search` | Search Semantic Scholar |
-| `semantic_get_paper` | Get paper by ID, DOI, or arXiv ID |
-| `semantic_citations` | Papers that cite a given paper |
-| `semantic_references` | Papers referenced by a given paper |
-| `crossref_search` | Search CrossRef metadata |
-| `crossref_resolve_doi` | Resolve DOI to full metadata and citation |
+| `scholar_wizard` | Analyse a query, detect discipline, generate refinement questions before searching |
+| `scholar_search` | Unified search across up to 10 databases with OA prioritisation and deduplication |
+| `scholar_get_paper` | Get paper by any identifier (DOI, PMID, arXiv ID, OpenAlex ID, ERIC ID, etc.) |
+| `scholar_citations` | Forward and backward citation tracking via Semantic Scholar |
+| `scholar_full_text` | Retrieve full text of open access papers from CORE, Europe PMC, arXiv, bioRxiv |
 
 ### Library Server (12 tools)
 
@@ -132,16 +151,52 @@ Default style is APA7. Set your preference with the `citation_style` parameter o
 | `library_tag` | Add or remove tags |
 | `library_stats` | Library statistics |
 
-## Academic APIs
+## Discipline Detection
 
-All APIs are free to use. No accounts or API keys required for basic operation.
+The search wizard analyses your query and routes to the strongest databases for your field:
 
-| API | Coverage | Rate Limit (Free) |
-|-----|----------|-------------------|
-| [PubMed](https://pubmed.ncbi.nlm.nih.gov/) | Biomedical, life sciences | 3 req/sec |
-| [arXiv](https://arxiv.org/) | Physics, maths, CS, biology, finance | 1 req/3sec |
-| [Semantic Scholar](https://www.semanticscholar.org/) | All disciplines, citation graphs | 100 req/5min |
-| [CrossRef](https://www.crossref.org/) | DOI metadata, all disciplines | 50 req/sec |
+| Discipline | Primary Databases |
+|------------|-------------------|
+| Psychology | OpenAlex, Semantic Scholar, PubMed |
+| Education | ERIC, OpenAlex, Semantic Scholar |
+| Neuroscience | PubMed, Europe PMC, bioRxiv |
+| Business and Management | OpenAlex, Semantic Scholar, CrossRef |
+| Computer Science and AI | Semantic Scholar, arXiv, DBLP |
+| Philosophy and Humanities | OpenAlex, CrossRef |
+| Biomedical and Life Sciences | PubMed, Europe PMC, bioRxiv/medRxiv |
+| Engineering | OpenAlex, Semantic Scholar, arXiv |
+| Social Sciences | OpenAlex, Semantic Scholar, CrossRef |
+| Mathematics and Physics | arXiv, Semantic Scholar, OpenAlex |
+| Economics | OpenAlex, CrossRef, Semantic Scholar |
+
+## Open Access Handling
+
+Every paper in search results includes:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `openAccess` | boolean | Whether this paper is openly accessible |
+| `openAccessUrl` | string or null | Direct URL to the OA version |
+| `fullTextAvailable` | boolean | Whether `scholar_full_text` can retrieve the content |
+
+Set `open_access_only: true` on `scholar_search` to exclude gated papers entirely. When set to false (default), OA papers appear first, gated papers appear second, and both counts are shown in the response.
+
+## Rate Limits
+
+Per-source rate limiting is built in. All limits respect API terms of service.
+
+| Source | Limit (no key) | Limit (with key) |
+|--------|---------------|-------------------|
+| OpenAlex | 10 req/sec | N/A (polite pool) |
+| PubMed | 3 req/sec | 10 req/sec |
+| arXiv | 1 req/3 sec | N/A |
+| Semantic Scholar | 100 req/5 min | Higher |
+| CrossRef | 50 req/sec | N/A (polite pool) |
+| CORE | 10 req/sec | N/A |
+| Europe PMC | 10 req/sec | N/A |
+| ERIC | 10 req/sec | N/A |
+| bioRxiv/medRxiv | 5 req/sec | N/A |
+| DBLP | 5 req/sec | N/A |
 
 ## Requirements
 
@@ -152,9 +207,9 @@ All APIs are free to use. No accounts or API keys required for basic operation.
 
 PRIMA Scholar is one of several PRIMA tools for Claude Code:
 
-- **[PRIMA](https://github.com/larrygmaguire-hash/prima-plugin)** — Project recording, indexing, and management
-- **[PRIMA Memory](https://github.com/larrygmaguire-hash/prima-memory)** — Session history and context recovery
-- **PRIMA Scholar** — Academic search and citation management (this plugin)
+- **[PRIMA](https://github.com/larrygmaguire-hash/prima-plugin)** -- Project recording, indexing, and management
+- **[PRIMA Memory](https://github.com/larrygmaguire-hash/prima-memory)** -- Session history and context recovery
+- **PRIMA Scholar** -- Academic search and citation management (this plugin)
 
 ## Licence
 

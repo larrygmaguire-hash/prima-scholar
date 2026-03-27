@@ -1,7 +1,7 @@
 {
   "name": "prima-scholar-search-mcp",
-  "version": "1.0.0",
-  "description": "Academic search MCP server — PubMed, arXiv, Semantic Scholar, CrossRef",
+  "version": "2.0.0",
+  "description": "Academic search MCP server — 10 databases with search wizard, OA filtering, and full-text retrieval",
   "type": "module",
   "main": "build/index.js",
   "scripts": {
