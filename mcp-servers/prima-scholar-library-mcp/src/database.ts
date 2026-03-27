@@ -23,6 +23,8 @@ import type {
 interface Migration {
   version: number;
   up: string[];
+  /** When true, "duplicate column name" errors in ALTER TABLE are silently ignored. */
+  safeDdl?: boolean;
 }
 
 /**
@@ -101,8 +103,12 @@ const MIGRATIONS: Migration[] = [
   {
     version: 2,
     up: [
+      // citations column was retroactively added to v1 CREATE TABLE.
+      // This ALTER is only needed for databases created before that change.
+      // Marked as safe_alter — the migration runner catches "duplicate column" errors.
       `ALTER TABLE documents ADD COLUMN citations TEXT`,
     ],
+    safeDdl: true,
   },
 ];
 
@@ -149,7 +155,18 @@ export class LibraryDatabase {
       const runMigrations = this.db.transaction(() => {
         for (const migration of pendingMigrations) {
           for (const sql of migration.up) {
-            this.db.prepare(sql).run();
+            if (migration.safeDdl) {
+              try {
+                this.db.prepare(sql).run();
+              } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : String(err);
+                if (!msg.includes("duplicate column name")) {
+                  throw err;
+                }
+              }
+            } else {
+              this.db.prepare(sql).run();
+            }
           }
           this.db.prepare(
             "INSERT INTO schema_version (version) VALUES (?)"
