@@ -43,11 +43,17 @@ cd prima-scholar
 cd mcp-servers/prima-scholar-search-mcp && npm install && npm run build && cd ../..
 cd mcp-servers/prima-scholar-library-mcp && npm install && npm run build && cd ../..
 
-# Install commands, skills, agents, and register MCP servers
+# Install commands, skills, agents, MCP servers, and register in ~/.claude.json
 ./install.sh /path/to/your/workspace
 ```
 
-The install script copies slash commands (`/scholar`, `/library`, `/cite`), skills, and agents into the target workspace's `.claude/` directory, and registers the MCP servers in `~/.claude.json` if not already present. Run it again after pulling updates to sync any new or changed files.
+The install script copies:
+- Slash commands (`/scholar`, `/library`, `/cite`) to `.claude/commands/`
+- Skills to `.claude/skills/`
+- Agents to `.claude/agents/`
+- MCP server code (build + dependencies) to `.claude/mcp-servers/` with `start.sh` wrappers
+
+It also registers the MCP servers in `~/.claude.json` pointing to the workspace copies. All operational files live inside the workspace -- the cloned repo is only needed for building and running the installer. Run it again after pulling updates to sync any new or changed files.
 
 ### Claude Desktop (MCP Servers Only)
 

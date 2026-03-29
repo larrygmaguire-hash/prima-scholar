@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PRIMA Scholar — Install commands, skills, and agents into a Claude Code workspace
+# PRIMA Scholar — Install commands, skills, agents, and MCP servers into a Claude Code workspace
 #
 # Usage:
 #   ./install.sh                    # installs to current directory
@@ -9,7 +9,8 @@
 #   1. Copies slash commands to .claude/commands/
 #   2. Copies skills to .claude/skills/
 #   3. Copies agents to .claude/agents/
-#   4. Registers MCP servers in ~/.claude.json (if not already present)
+#   4. Copies MCP server code to .claude/mcp-servers/ with start.sh wrappers
+#   5. Registers MCP servers in ~/.claude.json pointing to workspace copies
 #
 # MCP servers must already be built (npm run build in each server directory).
 
@@ -92,86 +93,147 @@ done
 echo "  $AGENTS_INSTALLED agent(s) installed"
 echo ""
 
+# --- MCP Servers ---
+
+echo "Installing MCP servers..."
+
+SEARCH_SRC="$SCRIPT_DIR/mcp-servers/prima-scholar-search-mcp"
+LIBRARY_SRC="$SCRIPT_DIR/mcp-servers/prima-scholar-library-mcp"
+
+SEARCH_DEST="$TARGET/.claude/mcp-servers/prima-scholar-search"
+LIBRARY_DEST="$TARGET/.claude/mcp-servers/prima-scholar-library"
+
+# Install search server
+if [ -d "$SEARCH_SRC/build" ] && [ -d "$SEARCH_SRC/node_modules" ]; then
+    mkdir -p "$SEARCH_DEST"
+    cp -r "$SEARCH_SRC/build" "$SEARCH_DEST/build"
+    cp -r "$SEARCH_SRC/node_modules" "$SEARCH_DEST/node_modules"
+    cp "$SEARCH_SRC/package.json" "$SEARCH_DEST/package.json"
+
+    # Create start.sh wrapper
+    cat > "$SEARCH_DEST/start.sh" << 'STARTEOF'
+#!/bin/bash
+SCRIPT_DIR="$(dirname "$0")"
+export NODE_PATH="$SCRIPT_DIR/node_modules"
+exec node "$SCRIPT_DIR/build/index.js"
+STARTEOF
+    chmod +x "$SEARCH_DEST/start.sh"
+
+    echo "  MCP: prima-scholar-search — installed to .claude/mcp-servers/"
+else
+    echo "  MCP: prima-scholar-search — build not found. Run: cd mcp-servers/prima-scholar-search-mcp && npm install && npm run build"
+fi
+
+# Install library server
+if [ -d "$LIBRARY_SRC/build" ] && [ -d "$LIBRARY_SRC/node_modules" ]; then
+    mkdir -p "$LIBRARY_DEST"
+    cp -r "$LIBRARY_SRC/build" "$LIBRARY_DEST/build"
+    cp -r "$LIBRARY_SRC/node_modules" "$LIBRARY_DEST/node_modules"
+    cp "$LIBRARY_SRC/package.json" "$LIBRARY_DEST/package.json"
+
+    # Create start.sh wrapper
+    cat > "$LIBRARY_DEST/start.sh" << 'STARTEOF'
+#!/bin/bash
+SCRIPT_DIR="$(dirname "$0")"
+export NODE_PATH="$SCRIPT_DIR/node_modules"
+exec node "$SCRIPT_DIR/build/index.js"
+STARTEOF
+    chmod +x "$LIBRARY_DEST/start.sh"
+
+    echo "  MCP: prima-scholar-library — installed to .claude/mcp-servers/"
+else
+    echo "  MCP: prima-scholar-library — build not found. Run: cd mcp-servers/prima-scholar-library-mcp && npm install && npm run build"
+fi
+
+echo ""
+
 # --- MCP Server Registration ---
 
 CLAUDE_JSON="$HOME/.claude.json"
-SEARCH_SERVER="$SCRIPT_DIR/mcp-servers/prima-scholar-search-mcp/build/index.js"
-LIBRARY_SERVER="$SCRIPT_DIR/mcp-servers/prima-scholar-library-mcp/build/index.js"
 
 if [ ! -f "$CLAUDE_JSON" ]; then
     echo "  WARNING: ~/.claude.json not found — skipping MCP registration"
     echo "  Add MCP servers manually per the README"
 else
-    # Check if search server is already registered
+    # Register search server
     if python3 -c "
 import json, sys
 with open('$CLAUDE_JSON') as f:
     d = json.load(f)
 servers = d.get('mcpServers', {})
 if 'prima-scholar-search' in servers:
-    sys.exit(0)
-sys.exit(1)
+    # Check if already pointing to workspace copy
+    existing = servers['prima-scholar-search'].get('command', '')
+    existing_args = servers['prima-scholar-search'].get('args', [])
+    if existing_args and '$SEARCH_DEST' in existing_args[0]:
+        sys.exit(0)  # already correct
+    sys.exit(1)  # exists but points elsewhere
+sys.exit(1)  # not registered
 " 2>/dev/null; then
-        echo "  MCP: prima-scholar-search — already registered"
+        echo "  MCP: prima-scholar-search — already registered (correct path)"
     else
-        if [ -f "$SEARCH_SERVER" ]; then
+        if [ -f "$SEARCH_DEST/start.sh" ]; then
             echo "  MCP: prima-scholar-search — registering..."
             python3 -c "
 import json
 with open('$CLAUDE_JSON') as f:
     d = json.load(f)
 d.setdefault('mcpServers', {})
+# Preserve existing env vars if re-registering
+existing_env = d['mcpServers'].get('prima-scholar-search', {}).get('env', {})
 d['mcpServers']['prima-scholar-search'] = {
     'type': 'stdio',
-    'command': 'node',
-    'args': ['$SEARCH_SERVER'],
+    'command': '$SEARCH_DEST/start.sh',
     'env': {
-        'CROSSREF_MAILTO': d['mcpServers'].get('prima-scholar-search', {}).get('env', {}).get('CROSSREF_MAILTO', ''),
-        'OPENALEX_MAILTO': d['mcpServers'].get('prima-scholar-search', {}).get('env', {}).get('OPENALEX_MAILTO', '')
+        'CROSSREF_MAILTO': existing_env.get('CROSSREF_MAILTO', ''),
+        'OPENALEX_MAILTO': existing_env.get('OPENALEX_MAILTO', '')
     }
 }
 with open('$CLAUDE_JSON', 'w') as f:
     json.dump(d, f, indent=2)
-print('    registered')
+print('    registered → $SEARCH_DEST/start.sh')
 "
         else
-            echo "  MCP: prima-scholar-search — build not found. Run: cd mcp-servers/prima-scholar-search-mcp && npm run build"
+            echo "  MCP: prima-scholar-search — not installed, skipping registration"
         fi
     fi
 
-    # Check if library server is already registered
+    # Register library server
     if python3 -c "
 import json, sys
 with open('$CLAUDE_JSON') as f:
     d = json.load(f)
 servers = d.get('mcpServers', {})
 if 'prima-scholar-library' in servers:
-    sys.exit(0)
+    existing_args = servers['prima-scholar-library'].get('args', [])
+    if existing_args and '$LIBRARY_DEST' in existing_args[0]:
+        sys.exit(0)
+    sys.exit(1)
 sys.exit(1)
 " 2>/dev/null; then
-        echo "  MCP: prima-scholar-library — already registered"
+        echo "  MCP: prima-scholar-library — already registered (correct path)"
     else
-        if [ -f "$LIBRARY_SERVER" ]; then
+        if [ -f "$LIBRARY_DEST/start.sh" ]; then
             echo "  MCP: prima-scholar-library — registering..."
             python3 -c "
 import json
 with open('$CLAUDE_JSON') as f:
     d = json.load(f)
 d.setdefault('mcpServers', {})
+existing_env = d['mcpServers'].get('prima-scholar-library', {}).get('env', {})
 d['mcpServers']['prima-scholar-library'] = {
     'type': 'stdio',
-    'command': 'node',
-    'args': ['$LIBRARY_SERVER'],
+    'command': '$LIBRARY_DEST/start.sh',
     'env': {
-        'RESEARCH_LIBRARY_PATH': '~/.research-library/library.db'
+        'RESEARCH_LIBRARY_PATH': existing_env.get('RESEARCH_LIBRARY_PATH', '~/.research-library/library.db')
     }
 }
 with open('$CLAUDE_JSON', 'w') as f:
     json.dump(d, f, indent=2)
-print('    registered')
+print('    registered → $LIBRARY_DEST/start.sh')
 "
         else
-            echo "  MCP: prima-scholar-library — build not found. Run: cd mcp-servers/prima-scholar-library-mcp && npm run build"
+            echo "  MCP: prima-scholar-library — not installed, skipping registration"
         fi
     fi
 fi
