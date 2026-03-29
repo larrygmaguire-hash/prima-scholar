@@ -2,6 +2,16 @@
 
 All notable changes to PRIMA Scholar are documented in this file.
 
+## [2.0.1] - 2026-03-29
+
+### Fixed
+
+- Library MCP server crash on fresh databases — migration v2 failed with "duplicate column name: citations" because v1 CREATE TABLE already included the column. Added `safeDdl` flag to migration runner to handle this gracefully.
+
+### Added
+
+- `install.sh` script — copies commands, skills, and agents into a target workspace's `.claude/` directory and registers MCP servers in `~/.claude.json`. Replaces manual setup.
+
 ## [2.0.0] - 2026-03-27
 
 ### Added
