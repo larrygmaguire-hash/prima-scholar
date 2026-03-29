@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * PRIMA Scholar Search MCP Server v2.0.0
+ * PRIMA Scholar Search MCP Server v2.0.1
  *
  * A Model Context Protocol server for searching academic literature
  * across 10 databases: PubMed, arXiv, Semantic Scholar, CrossRef,
@@ -9,7 +9,7 @@
  * 5-tool surface: wizard, search, get_paper, citations, full_text.
  *
  * @author PRIMA Contributors
- * @version 2.0.0
+ * @version 2.0.1
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -86,7 +86,7 @@ const API_KEY_SOURCES: Record<string, { envVar: string; url: string }> = {
 const server = new Server(
   {
     name: "prima-scholar-search-mcp",
-    version: "2.0.0",
+    version: "2.0.1",
   },
   {
     capabilities: {
@@ -419,7 +419,7 @@ async function retrieveFullText(id: string): Promise<{
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("PRIMA Scholar Search MCP Server v2.0.0 running on stdio");
+  console.error("PRIMA Scholar Search MCP Server v2.0.1 running on stdio");
 }
 
 main().catch((error) => {
