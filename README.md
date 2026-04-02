@@ -1,6 +1,6 @@
 ![PRIMA Scholar](assets/prima-scholar-brand-image.png)
 
-# PRIMA Scholar v2.0.1
+# PRIMA Scholar v2.0.2
 
 A research workspace plugin for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [Claude Desktop](https://claude.ai/download). Search 10 academic databases, manage a local document library, and write with properly formatted citations.
 
@@ -35,25 +35,26 @@ A research workspace plugin for [Claude Code](https://docs.anthropic.com/en/docs
 
 ### Claude Code (Full Plugin)
 
-```bash
-git clone https://github.com/larrygmaguire-hash/prima-scholar.git
-cd prima-scholar
+To install, give your Claude Code instance this repository link and ask it to install PRIMA Scholar. It will handle everything.
 
-# Build both MCP servers
-cd mcp-servers/prima-scholar-search-mcp && npm install && npm run build && cd ../..
-cd mcp-servers/prima-scholar-library-mcp && npm install && npm run build && cd ../..
+> **Instructions for Claude Code (read and follow these steps):**
+>
+> 1. **Clone to `~/Developer/prima-scholar`** -- not into the current workspace. Cloning inside the workspace creates a nested git repository, which causes git tracking problems and embedded repo warnings on commit. The clone must go to a separate location.
+>
+> 2. **Build both MCP servers:**
+>    ```bash
+>    cd ~/Developer/prima-scholar/mcp-servers/prima-scholar-search-mcp && npm install && npm run build
+>    cd ~/Developer/prima-scholar/mcp-servers/prima-scholar-library-mcp && npm install && npm run build
+>    ```
+>
+> 3. **Run the installer** pointing at the workspace (the directory you are working in):
+>    ```bash
+>    ~/Developer/prima-scholar/install.sh /path/to/workspace
+>    ```
+>
+> 4. **Restart Claude Code** to load the new commands and MCP servers.
 
-# Install commands, skills, agents, MCP servers, and register in ~/.claude.json
-./install.sh /path/to/your/workspace
-```
-
-The install script copies:
-- Slash commands (`/scholar`, `/library`, `/cite`) to `.claude/commands/`
-- Skills to `.claude/skills/`
-- Agents to `.claude/agents/`
-- MCP server code (build + dependencies) to `.claude/mcp-servers/` with `start.sh` wrappers
-
-It also registers the MCP servers in `~/.claude.json` pointing to the workspace copies. All operational files live inside the workspace -- the cloned repo is only needed for building and running the installer. Run it again after pulling updates to sync any new or changed files.
+The install script copies commands, skills, agents, and MCP server code into the workspace's `.claude/` directory, registers the MCP servers in `~/.claude.json`, and adds the MCP server directories to the workspace's `.gitignore`.
 
 ### Claude Desktop (MCP Servers Only)
 
@@ -83,6 +84,59 @@ Add to your Claude Desktop configuration (`claude_desktop_config.json`):
 ```
 
 You can install either server independently. The search server has no dependency on the library server.
+
+## Updates and Customisation
+
+### Updating
+
+To update, ask your Claude Code instance to update PRIMA Scholar. It will pull the latest version, rebuild, and re-install.
+
+> **Instructions for Claude Code (read and follow these steps):**
+>
+> 1. **Pull the latest version:**
+>    ```bash
+>    cd ~/Developer/prima-scholar && git pull
+>    ```
+>
+> 2. **Rebuild both MCP servers:**
+>    ```bash
+>    cd ~/Developer/prima-scholar/mcp-servers/prima-scholar-search-mcp && npm install && npm run build
+>    cd ~/Developer/prima-scholar/mcp-servers/prima-scholar-library-mcp && npm install && npm run build
+>    ```
+>
+> 3. **Re-run the installer:**
+>    ```bash
+>    ~/Developer/prima-scholar/install.sh /path/to/workspace
+>    ```
+>
+> 4. **Restart Claude Code** to load updated MCP servers.
+
+### What gets overwritten
+
+The installer **overwrites** all PRIMA Scholar commands, skills, and agents on every run. This ensures you always have the latest versions. If you have modified any of the commands, skills, or agents that shipped with PRIMA Scholar, **your changes will be replaced** when you update.
+
+MCP server code is also overwritten on each install. Environment variables and API keys in `~/.claude.json` are preserved.
+
+### Keeping your customisations
+
+If you want to modify a PRIMA Scholar skill, agent, or command and keep your changes across updates, **copy it to a new name** before editing. The installer only overwrites files that match the exact names it ships -- renamed copies are yours and will never be touched.
+
+> **Instructions for Claude Code:**
+>
+> When the user asks to customise a PRIMA Scholar skill, agent, or command, copy it to a new name first. Prefix with `my-` or use any name that does not match the original. Examples:
+>
+> ```bash
+> # Customise a skill
+> cp -r .claude/skills/researching-topics .claude/skills/my-researching-topics
+>
+> # Customise an agent
+> cp .claude/agents/research-agent.md .claude/agents/my-research-agent.md
+>
+> # Customise a command
+> cp .claude/commands/scholar.md .claude/commands/my-scholar.md
+> ```
+>
+> Edit the copy, not the original. The original will be overwritten on the next update.
 
 ## Configuration
 

@@ -2,6 +2,19 @@
 
 All notable changes to PRIMA Scholar are documented in this file.
 
+## [2.0.2] - 2026-04-02
+
+### Fixed
+
+- `install.sh` now detects and aborts when cloned inside the target workspace (nested git repo). Prints clear instructions to relocate before running.
+- `install.sh` now overwrites existing skills and agents on re-install instead of skipping them, ensuring updates are always applied.
+
+### Added
+
+- `install.sh` automatically adds MCP server directories to the workspace's `.gitignore`.
+- README rewritten with step-by-step install and update instructions addressed directly to Claude Code instances.
+- `fix-nested-repo.md` — standalone fix guide for users who already have a nested repo.
+
 ## [2.0.1] - 2026-03-29
 
 ### Fixed

@@ -32,6 +32,23 @@ if [ ! -d "$TARGET/.claude" ]; then
     exit 1
 fi
 
+# Abort if running from inside the target workspace (nested git repo risk)
+case "$SCRIPT_DIR" in
+    "$TARGET"/*)
+        echo "ERROR: prima-scholar is cloned inside the workspace ($TARGET)."
+        echo ""
+        echo "This creates a nested git repository. Git will commit it as an embedded"
+        echo "repo rather than tracking the files, causing warnings and broken clones."
+        echo ""
+        echo "Fix: move prima-scholar outside the workspace and run again."
+        echo ""
+        echo "  mv $SCRIPT_DIR ~/Developer/prima-scholar"
+        echo "  ~/Developer/prima-scholar/install.sh $TARGET"
+        echo ""
+        exit 1
+        ;;
+esac
+
 # --- Commands ---
 
 mkdir -p "$TARGET/.claude/commands"
@@ -57,14 +74,14 @@ for skill_dir in "$SCRIPT_DIR"/skills/*/; do
     [ -d "$skill_dir" ] || continue
     name="$(basename "$skill_dir")"
 
-    # Check for conflict with existing skill
     if [ -d "$TARGET/.claude/skills/$name" ]; then
-        echo "  skill: $name — SKIPPED (already exists)"
-        continue
+        rm -rf "$TARGET/.claude/skills/$name"
+        cp -r "$skill_dir" "$TARGET/.claude/skills/$name"
+        echo "  skill: $name (updated)"
+    else
+        cp -r "$skill_dir" "$TARGET/.claude/skills/$name"
+        echo "  skill: $name"
     fi
-
-    cp -r "$skill_dir" "$TARGET/.claude/skills/$name"
-    echo "  skill: $name"
     SKILLS_INSTALLED=$((SKILLS_INSTALLED + 1))
 done
 
@@ -81,12 +98,12 @@ for agent in "$SCRIPT_DIR"/agents/*.md; do
     name="$(basename "$agent")"
 
     if [ -f "$TARGET/.claude/agents/$name" ]; then
-        echo "  agent: $name — SKIPPED (already exists)"
-        continue
+        cp "$agent" "$TARGET/.claude/agents/$name"
+        echo "  agent: $name (updated)"
+    else
+        cp "$agent" "$TARGET/.claude/agents/$name"
+        echo "  agent: $name"
     fi
-
-    cp "$agent" "$TARGET/.claude/agents/$name"
-    echo "  agent: $name"
     AGENTS_INSTALLED=$((AGENTS_INSTALLED + 1))
 done
 
@@ -236,6 +253,34 @@ print('    registered → $LIBRARY_DEST/start.sh')
             echo "  MCP: prima-scholar-library — not installed, skipping registration"
         fi
     fi
+fi
+
+# --- Gitignore ---
+
+GITIGNORE="$TARGET/.gitignore"
+GITIGNORE_ENTRIES=(
+    ".claude/mcp-servers/prima-scholar-search/"
+    ".claude/mcp-servers/prima-scholar-library/"
+)
+
+if [ -f "$GITIGNORE" ]; then
+    ADDED=0
+    for entry in "${GITIGNORE_ENTRIES[@]}"; do
+        if ! grep -qxF "$entry" "$GITIGNORE"; then
+            echo "$entry" >> "$GITIGNORE"
+            ADDED=$((ADDED + 1))
+        fi
+    done
+    if [ $ADDED -gt 0 ]; then
+        echo "  .gitignore: added $ADDED MCP server entries"
+    else
+        echo "  .gitignore: MCP server entries already present"
+    fi
+else
+    echo "  .gitignore: not found — add these entries manually to avoid committing MCP server files:"
+    for entry in "${GITIGNORE_ENTRIES[@]}"; do
+        echo "    $entry"
+    done
 fi
 
 echo ""
