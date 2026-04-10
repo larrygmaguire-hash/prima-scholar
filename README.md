@@ -1,6 +1,6 @@
 ![PRIMA Scholar](assets/prima-scholar-brand-image.png)
 
-# PRIMA Scholar v2.0.2
+# PRIMA Scholar v2.0.3
 
 A research workspace plugin for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [Claude Desktop](https://claude.ai/download). Search 10 academic databases, manage a local document library, and write with properly formatted citations.
 
