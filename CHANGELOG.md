@@ -2,6 +2,13 @@
 
 All notable changes to PRIMA Scholar are documented in this file.
 
+## [2.0.3] - 2026-04-10
+
+### Changed
+
+- README ecosystem section expanded to list all 6 PRIMA components (was missing AI Business OS, CRM, and Dashboard)
+- `plugin.json` version bumped to match CHANGELOG (was stuck at 1.0.0)
+
 ## [2.0.2] - 2026-04-02
 
 ### Fixed

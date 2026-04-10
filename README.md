@@ -267,10 +267,13 @@ Per-source rate limiting is built in. All limits respect API terms of service.
 
 ## Part of the PRIMA Ecosystem
 
-PRIMA Scholar is one of several PRIMA tools for Claude Code:
+PRIMA Scholar is one of several PRIMA tools for Claude Code. Scholar is standalone and does not require any other PRIMA component.
 
-- **[PRIMA](https://github.com/larrygmaguire-hash/prima-plugin)** -- Project recording, indexing, and management
+- **[AI Business OS](https://github.com/larrygmaguire-hash/ai-business-os)** -- Base workspace template for AI-native business operations
+- **[PRIMA Plugin](https://github.com/larrygmaguire-hash/prima-plugin)** -- Project recording, indexing, and management
 - **[PRIMA Memory](https://github.com/larrygmaguire-hash/prima-memory)** -- Session history and context recovery
+- **[PRIMA CRM](https://github.com/larrygmaguire-hash/prima-crm)** -- Client relationship management
+- **[PRIMA Dashboard](https://github.com/larrygmaguire-hash/prima-dashboard)** -- Visual project dashboard
 - **PRIMA Scholar** -- Academic search and citation management (this plugin)
 
 ## Licence

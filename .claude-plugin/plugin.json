@@ -1,7 +1,7 @@
 {
   "name": "prima-scholar",
   "description": "PRIMA Scholar — research workspace with academic search, document library, and citation-aware writing for Claude Code",
-  "version": "1.0.0",
+  "version": "2.0.3",
   "author": {
     "name": "PRIMA Contributors",
     "email": "larry@humanperformance.ie"
