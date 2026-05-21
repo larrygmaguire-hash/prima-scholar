@@ -1,12 +1,40 @@
 {
   "name": "prima-scholar-search-mcp",
-  "version": "2.0.2",
-  "description": "Academic search MCP server — 10 databases with search wizard, OA filtering, and full-text retrieval",
+  "version": "2.1.0",
+  "description": "MCP server for academic literature search across 10 databases — PubMed, arXiv, Semantic Scholar, CrossRef, OpenAlex, Europe PMC, DBLP, ERIC, bioRxiv, CORE. Search wizard with discipline detection and open-access filtering.",
   "type": "module",
   "main": "build/index.js",
+  "bin": {
+    "prima-scholar-search-mcp": "./build/index.js"
+  },
+  "files": [
+    "build",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
-    "start": "node build/index.js"
+    "start": "node build/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "claude",
+    "academic",
+    "research",
+    "pubmed",
+    "arxiv",
+    "semantic-scholar",
+    "crossref",
+    "prima"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/larrygmaguire-hash/prima-scholar.git",
+    "directory": "mcp-servers/prima-scholar-search-mcp"
+  },
+  "homepage": "https://github.com/larrygmaguire-hash/prima-scholar#readme",
+  "bugs": {
+    "url": "https://github.com/larrygmaguire-hash/prima-scholar/issues"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
@@ -16,6 +44,9 @@
     "@types/node": "^22.0.0",
     "typescript": "^5.7.0"
   },
-  "author": "PRIMA Contributors",
+  "engines": {
+    "node": ">=18"
+  },
+  "author": "Larry Maguire",
   "license": "MIT"
 }

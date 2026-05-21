@@ -1,12 +1,40 @@
 {
   "name": "prima-scholar-library-mcp",
-  "version": "1.0.0",
-  "description": "Local document library MCP server with SQLite FTS5 full-text search",
+  "version": "2.1.0",
+  "description": "MCP server for a local research library with SQLite FTS5 full-text search. Imports PDFs and Word documents, tags, organises, and searches across your private corpus.",
   "type": "module",
   "main": "build/index.js",
+  "bin": {
+    "prima-scholar-library-mcp": "./build/index.js"
+  },
+  "files": [
+    "build",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
-    "start": "node build/index.js"
+    "start": "node build/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "claude",
+    "research",
+    "library",
+    "sqlite",
+    "fts5",
+    "pdf",
+    "docx",
+    "prima"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/larrygmaguire-hash/prima-scholar.git",
+    "directory": "mcp-servers/prima-scholar-library-mcp"
+  },
+  "homepage": "https://github.com/larrygmaguire-hash/prima-scholar#readme",
+  "bugs": {
+    "url": "https://github.com/larrygmaguire-hash/prima-scholar/issues"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
@@ -19,6 +47,9 @@
     "@types/node": "^22.0.0",
     "typescript": "^5.7.0"
   },
-  "author": "PRIMA Contributors",
+  "engines": {
+    "node": ">=18"
+  },
+  "author": "Larry Maguire",
   "license": "MIT"
 }
