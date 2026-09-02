@@ -2,6 +2,30 @@
 
 All notable changes to PRIMA Scholar are documented in this file.
 
+## [2.1.0] - 2026-09-02
+
+Search MCP server 2.1.0. Library MCP server unchanged.
+
+### Added
+
+- **`literature-watch` skill, `/literature-watch` command and `literature-watch-agent`**: a recurring recency scan over a configured set of topic groups, screened for relevance, written as a dated digest with APA7 references and a JSON sidecar of DOIs, with selected papers imported to the library. Config template in `skills/literature-watch/references/config-template.md`.
+- `scholar_search` caps `published_before` at today when `sort_by` is `date`, so placeholder future dates from CrossRef and OpenAlex do not lead the results.
+- `publishedDate` on every `Paper` (ISO `YYYY-MM-DD`, or `YYYY-MM` / `YYYY` when only a partial date is known), populated by all 10 clients.
+- `scholar_search` parameters `published_after` and `published_before`: inclusive ISO date window, finer than `year_from` / `year_to` and preferred over them. Validated as `YYYY`, `YYYY-MM` or `YYYY-MM-DD`.
+- `scholar_search` parameter `sort_by` with modes `open_access` (default, earlier behaviour), `citations`, `date` (newest first, for recency scans) and `relevance` (per-source rank, interleaved round-robin across sources).
+- `scholar_search` parameter `venues`: case-insensitive substring match on journal or publisher name, applied after retrieval.
+- `scholar_search` parameter `exclude_dois`: drop papers by normalised DOI, for de-duplicating against a library.
+- Server-side date pushdown per source: OpenAlex (`from_publication_date` / `to_publication_date`, `sort=publication_date:desc`), CrossRef (`from-pub-date` / `until-pub-date`, `sort=published`), Semantic Scholar (`publicationDateOrYear`, `year`), arXiv (`submittedDate` range, `sortBy=submittedDate`), PubMed (`datetype=pdat`, `mindate` / `maxdate`, `sort=pub_date`), Europe PMC (`FIRST_PDATE` range, `sort=P_PDATE_D desc`), bioRxiv/medRxiv (ISO from/to dates). CORE keeps its year parameters; ERIC and DBLP are year-only. All sources are re-filtered client-side on the date window.
+- Date helpers in `utils.ts`: `toIsoDate`, `monthToNumber`, `todayIso`, `normaliseIsoForCompare`, `compareDateDesc`.
+- README "Recency Scanning" section with worked example calls.
+
+### Changed
+
+- CrossRef client now honours `year_from` / `year_to` (previously ignored) and returns `citationCount` from `is-referenced-by-count`.
+- `scholar_search` result payload carries `sortBy` and `filtersApplied` (date window, venues, count of excluded DOIs, year range, OA flag).
+- `aggregatedSearch` returns the shared `SearchResult` type rather than an inline type.
+- Semantic Scholar `FIELDS` now requests `publicationDate`.
+
 ## [2.0.3] - 2026-04-10
 
 ### Changed

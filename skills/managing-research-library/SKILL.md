@@ -29,7 +29,7 @@ description: Import documents, organise collections, search and manage the local
 - Accept file path or DOI from user
 - Detect file type (PDF, DOCX, TXT, MD)
 - Call `library_import` with the file path
-- If DOI is available, enrich metadata via `crossref_resolve_doi`
+- If DOI is available, enrich metadata via `scholar_get_paper`
 - Confirm import with extracted metadata: title, authors, year, type
 - Suggest tagging or collection assignment
 
@@ -81,7 +81,7 @@ description: Import documents, organise collections, search and manage the local
 - Call `library_stats`
 - Present summary: total documents, documents by type, documents by year, top tags, collection sizes
 
-2. **Auto-enrich metadata** when DOI is available. Call `crossref_resolve_doi` to fill in authors, year, journal, and generate APA7 citation string.
+2. **Auto-enrich metadata** when DOI is available. Call `scholar_get_paper` to fill in authors, year, journal, and generate APA7 citation string.
 
 3. **Present results clearly** with document IDs visible for follow-up actions.
 
@@ -149,7 +149,7 @@ Suggested tags: [auto-suggested based on content]
 | Problem | Cause | Fix |
 |---------|-------|-----|
 | Import fails | Unsupported file type or corrupted file | Check file type against supported formats in `references/import-formats.md` |
-| No metadata extracted | PDF has no embedded metadata | Manually provide title/author or use DOI for enrichment via `crossref_resolve_doi` |
+| No metadata extracted | PDF has no embedded metadata | Manually provide title/author or use DOI for enrichment via `scholar_get_paper` |
 | Search returns nothing | Query too specific or library is empty | Broaden search terms, check `library_stats` to confirm documents exist |
 | Duplicate import | Same paper imported twice | Search library by title before importing; use DOI matching when available |
 | Cannot find document ID | ID not displayed in previous output | Run `library_search` or `library_list` to retrieve current IDs |

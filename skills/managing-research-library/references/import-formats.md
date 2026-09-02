@@ -30,7 +30,7 @@ Each library document stores the following metadata:
 
 ## Metadata Enrichment via DOI
 
-When a DOI is available (extracted from PDF or provided by user), call `crossref_resolve_doi` to populate:
+When a DOI is available (extracted from PDF or provided by user), call `scholar_get_paper` to populate:
 
 - Complete author list with institutional affiliations
 - Full journal name and volume/issue/pages

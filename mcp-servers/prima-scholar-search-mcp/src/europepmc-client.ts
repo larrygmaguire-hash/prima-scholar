@@ -10,7 +10,7 @@
 
 import { Paper, SearchOptions, ScholarClient } from "./types.js";
 import { RateLimiter } from "./rate-limiter.js";
-import { formatAllCitations } from "./utils.js";
+import { formatAllCitations, normaliseIsoForCompare, todayIso } from "./utils.js";
 
 const BASE_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest";
 
@@ -23,8 +23,17 @@ export class EuropePmcClient implements ScholarClient {
 
     let searchQuery = query;
 
-    // Year filter
-    if (options?.yearFrom || options?.yearTo) {
+    // Date filter. Finer publishedAfter/publishedBefore use FIRST_PDATE;
+    // year-only requests keep the existing PUB_YEAR clause.
+    if (options?.publishedAfter || options?.publishedBefore) {
+      const lower = options.publishedAfter
+        ? normaliseIsoForCompare(options.publishedAfter, "lower")
+        : "1900-01-01";
+      const upper = options.publishedBefore
+        ? normaliseIsoForCompare(options.publishedBefore, "upper")
+        : todayIso();
+      searchQuery += ` AND FIRST_PDATE:[${lower} TO ${upper}]`;
+    } else if (options?.yearFrom || options?.yearTo) {
       const from = options?.yearFrom ?? 1900;
       const to = options?.yearTo ?? new Date().getFullYear();
       searchQuery += ` PUB_YEAR:[${from} TO ${to}]`;
@@ -41,6 +50,10 @@ export class EuropePmcClient implements ScholarClient {
       pageSize: String(maxResults),
       resultType: "core",
     });
+
+    if (options?.sortBy === "date") {
+      params.set("sort", "P_PDATE_D desc");
+    }
 
     const response = await fetch(`${BASE_URL}/search?${params}`);
 
@@ -102,6 +115,7 @@ export class EuropePmcClient implements ScholarClient {
       authors,
       abstract: article.abstractText ?? "",
       year: article.pubYear ? parseInt(article.pubYear, 10) : 0,
+      publishedDate: article.firstPublicationDate ?? undefined,
       journal: article.journalTitle ?? undefined,
       volume: article.journalVolume ?? undefined,
       issue: article.issue ?? undefined,
@@ -149,6 +163,7 @@ interface EuropePmcArticle {
   issue?: string;
   pageInfo?: string;
   pubYear?: string;
+  firstPublicationDate?: string;
   isOpenAccess?: string;
   citedByCount?: number;
   keywordList?: { keyword?: string[] };

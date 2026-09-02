@@ -9,7 +9,7 @@
 
 import { Paper, SearchOptions, ScholarClient } from "./types.js";
 import { RateLimiter } from "./rate-limiter.js";
-import { formatAllCitations } from "./utils.js";
+import { formatAllCitations, normaliseIsoForCompare } from "./utils.js";
 
 const BASE_URL = "https://api.biorxiv.org";
 
@@ -24,12 +24,18 @@ export class BiorxivClient implements ScholarClient {
     // For keyword search, use the details endpoint with content search.
     // The public API is limited — use the /details endpoint with date range
     // and filter client-side by query terms.
+    // Finer publishedAfter/publishedBefore are already ISO and take precedence
+    // over the year-derived bounds.
     const currentYear = new Date().getFullYear();
     const yearFrom = options?.yearFrom ?? currentYear - 1;
     const yearTo = options?.yearTo ?? currentYear;
 
-    const fromDate = `${yearFrom}-01-01`;
-    const toDate = `${yearTo}-12-31`;
+    const fromDate = options?.publishedAfter
+      ? normaliseIsoForCompare(options.publishedAfter, "lower")
+      : `${yearFrom}-01-01`;
+    const toDate = options?.publishedBefore
+      ? normaliseIsoForCompare(options.publishedBefore, "upper")
+      : `${yearTo}-12-31`;
 
     // Search both bioRxiv and medRxiv
     const [biorxivResults, medrxivResults] = await Promise.allSettled([
@@ -125,6 +131,7 @@ export class BiorxivClient implements ScholarClient {
       authors,
       abstract: article.abstract ?? "",
       year: article.date ? parseInt(article.date.substring(0, 4), 10) : 0,
+      publishedDate: article.date ?? undefined,
       journal: `${server} (preprint)`,
       volume: undefined,
       issue: undefined,

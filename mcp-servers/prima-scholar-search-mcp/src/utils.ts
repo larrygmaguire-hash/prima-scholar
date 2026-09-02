@@ -1,5 +1,5 @@
 /**
- * Utility functions for citation formatting and deduplication.
+ * Utility functions for citation formatting, deduplication and date handling.
  */
 
 import { Author, CitationStyle, Paper } from "./types.js";
@@ -372,4 +372,97 @@ function metadataScore(paper: Paper): number {
   if (paper.citationCount != null) score++;
   if (paper.keywords && paper.keywords.length > 0) score++;
   return score;
+}
+
+// ── Date Helpers ─────────────────────────────────────────────────────
+
+const ISO_PARTIAL_DATE = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/;
+
+const MONTH_NAMES: Record<string, number> = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
+};
+
+/**
+ * Convert a month token to a number. Accepts numerals ("8", "08") and
+ * English month names or abbreviations ("Aug", "August"). Returns
+ * undefined when the token cannot be interpreted.
+ */
+export function monthToNumber(month: number | string | undefined): number | undefined {
+  if (month === undefined || month === null || month === "") return undefined;
+  if (typeof month === "number") return Number.isFinite(month) && month >= 1 && month <= 12 ? month : undefined;
+  const trimmed = String(month).trim();
+  if (/^\d+$/.test(trimmed)) {
+    const n = Number(trimmed);
+    return n >= 1 && n <= 12 ? n : undefined;
+  }
+  return MONTH_NAMES[trimmed.slice(0, 3).toLowerCase()];
+}
+
+/**
+ * Join year, month and day into an ISO date string, zero-padding each part
+ * and dropping trailing parts that are missing or unusable.
+ *
+ * toIsoDate([2026, 8, 5])  -> "2026-08-05"
+ * toIsoDate([2026, 8])     -> "2026-08"
+ * toIsoDate([2026])        -> "2026"
+ * toIsoDate([undefined])   -> undefined
+ */
+export function toIsoDate(parts: (number | string | undefined)[]): string | undefined {
+  const [yearRaw, monthRaw, dayRaw] = parts;
+  if (yearRaw === undefined || yearRaw === null || yearRaw === "") return undefined;
+  const year = Number(yearRaw);
+  if (!Number.isFinite(year) || year <= 0) return undefined;
+  let iso = String(Math.trunc(year)).padStart(4, "0");
+
+  const month = monthToNumber(monthRaw);
+  if (month === undefined) return iso;
+  iso += `-${String(month).padStart(2, "0")}`;
+
+  if (dayRaw === undefined || dayRaw === null || dayRaw === "") return iso;
+  const day = Number(dayRaw);
+  if (!Number.isFinite(day) || day < 1 || day > 31) return iso;
+  iso += `-${String(Math.trunc(day)).padStart(2, "0")}`;
+  return iso;
+}
+
+/** Today's date as YYYY-MM-DD (UTC). */
+export function todayIso(): string {
+  return new Date().toISOString().substring(0, 10);
+}
+
+/**
+ * Expand a partial ISO date (YYYY or YYYY-MM) to a full YYYY-MM-DD so it can
+ * be compared as a plain string. "lower" pads to the first day of the period
+ * (2026 -> 2026-01-01); "upper" pads to the last day (2026 -> 2026-12-31,
+ * 2026-06 -> 2026-06-30). Full dates and unrecognised strings are returned
+ * unchanged.
+ */
+export function normaliseIsoForCompare(d: string, side: "lower" | "upper" = "lower"): string {
+  const match = ISO_PARTIAL_DATE.exec(d.trim());
+  if (!match) return d;
+  const [, year, month, day] = match;
+  if (day) return `${year}-${month}-${day}`;
+  if (month) {
+    if (side === "lower") return `${year}-${month}-01`;
+    const lastDay = new Date(Date.UTC(Number(year), Number(month), 0)).getUTCDate();
+    return `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
+  }
+  return side === "lower" ? `${year}-01-01` : `${year}-12-31`;
+}
+
+/**
+ * Comparator for newest-first ordering. Uses publishedDate when present,
+ * falls back to year, and sorts papers with neither to the end.
+ */
+export function compareDateDesc(a?: string, b?: string, aYear?: number, bYear?: number): number {
+  const aKey = a ?? (aYear && aYear > 0 ? String(aYear) : undefined);
+  const bKey = b ?? (bYear && bYear > 0 ? String(bYear) : undefined);
+  if (aKey === undefined && bKey === undefined) return 0;
+  if (aKey === undefined) return 1;
+  if (bKey === undefined) return -1;
+  const aNorm = normaliseIsoForCompare(aKey, "lower");
+  const bNorm = normaliseIsoForCompare(bKey, "lower");
+  if (aNorm === bNorm) return 0;
+  return aNorm < bNorm ? 1 : -1;
 }

@@ -10,7 +10,7 @@ import { RateLimiter } from "./rate-limiter.js";
 import { formatAllCitations } from "./utils.js";
 
 const BASE_URL = "https://api.semanticscholar.org/graph/v1";
-const FIELDS = "title,authors,abstract,year,venue,externalIds,citationCount,url,isOpenAccess,openAccessPdf";
+const FIELDS = "title,authors,abstract,year,publicationDate,venue,externalIds,citationCount,url,isOpenAccess,openAccessPdf";
 
 export class SemanticScholarClient implements ScholarClient {
   private rateLimiter: RateLimiter;
@@ -44,6 +44,17 @@ export class SemanticScholarClient implements ScholarClient {
       limit: String(maxResults),
       fields: FIELDS,
     });
+
+    // Date filters. publicationDateOrYear accepts "<start>:<end>" with either
+    // side empty; year accepts "<from>-<to>" with either side empty.
+    if (options?.publishedAfter || options?.publishedBefore) {
+      params.set(
+        "publicationDateOrYear",
+        `${options.publishedAfter ?? ""}:${options.publishedBefore ?? ""}`
+      );
+    } else if (options?.yearFrom || options?.yearTo) {
+      params.set("year", `${options.yearFrom ?? ""}-${options.yearTo ?? ""}`);
+    }
 
     const response = await fetch(`${BASE_URL}/paper/search?${params}`, {
       headers: this.getHeaders(),
@@ -162,6 +173,7 @@ export class SemanticScholarClient implements ScholarClient {
       authors: (item.authors ?? []).map((a: any) => ({ name: a.name ?? "" })),
       abstract: item.abstract ?? "",
       year: item.year ?? 0,
+      publishedDate: item.publicationDate ?? undefined,
       journal: item.venue || undefined,
       doi,
       url,

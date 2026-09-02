@@ -1,6 +1,6 @@
 ![PRIMA Scholar](assets/prima-scholar-brand-image.png)
 
-# PRIMA Scholar v2.0.3
+# PRIMA Scholar v2.1.0
 
 A research workspace plugin for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [Claude Desktop](https://claude.ai/download). Search 10 academic databases, manage a local document library, and write with properly formatted citations.
 
@@ -175,6 +175,7 @@ Default style is APA7. Set your preference with the `citation_style` parameter o
 | `/scholar [topic]` | Start a research session |
 | `/cite [DOI or title]` | Quick citation lookup |
 | `/library [action]` | Library management: import, search, collections, stats |
+| `/literature-watch [since YYYY-MM-DD] [--dry-run]` | Recurring recency scan of your standing topics, written as a dated digest |
 
 ## Skills (Claude Code)
 
@@ -183,6 +184,7 @@ Default style is APA7. Set your preference with the `citation_style` parameter o
 | `researching-topics` | "research [topic]", "find papers on", "literature review" |
 | `managing-research-library` | "import this paper", "search my library", "organise research" |
 | `writing-with-citations` | "write with citations", "draft with references", "write in Harvard style" |
+| `literature-watch` | "run the literature watch", "what is new in the literature on", "weekly paper scan" |
 
 ## MCP Tools
 
@@ -191,7 +193,7 @@ Default style is APA7. Set your preference with the `citation_style` parameter o
 | Tool | Description |
 |------|-------------|
 | `scholar_wizard` | Analyse a query, detect discipline, generate refinement questions before searching |
-| `scholar_search` | Unified search across up to 10 databases with OA prioritisation and deduplication |
+| `scholar_search` | Unified search across up to 10 databases with OA prioritisation, deduplication, date-window recency scanning, venue filtering and DOI exclusion |
 | `scholar_get_paper` | Get paper by any identifier (DOI, PMID, arXiv ID, OpenAlex ID, ERIC ID, etc.) |
 | `scholar_citations` | Forward and backward citation tracking via Semantic Scholar |
 | `scholar_full_text` | Retrieve full text of open access papers from CORE, Europe PMC, arXiv, bioRxiv |

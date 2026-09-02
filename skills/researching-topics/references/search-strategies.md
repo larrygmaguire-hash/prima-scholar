@@ -57,8 +57,8 @@ Most academic APIs support natural language queries rather than strict Boolean. 
 
 After finding a highly relevant paper:
 
-1. Use `semantic_citations` to find papers that cite it (forward chaining)
-2. Use `semantic_references` to find papers it cites (backward chaining)
+1. Use `scholar_citations` (direction `citations`) to find papers that cite it (forward chaining)
+2. Use `scholar_citations` (direction `references`) to find papers it cites (backward chaining)
 3. This reveals the conversation around a key finding
 
 ## Date Filtering Guidelines
@@ -69,3 +69,4 @@ After finding a highly relevant paper:
 | Established findings with recent updates | Last 10 years |
 | Historical/foundational research | No date filter |
 | Rapidly evolving fields (AI, genomics) | Last 2-3 years |
+| Recency scan (what is new since the last check) | `published_after` = last run date, `sort_by` = `date`, `exclude_dois` = DOIs already held |

@@ -44,9 +44,9 @@ description: Search academic databases (PubMed, arXiv, Semantic Scholar, CrossRe
 7. **Decision Checkpoint.** Ask the user which papers to explore further or import to library.
 
 8. **Fetch full details.** For selected papers:
-   - `semantic_get_paper` for citation graphs and abstract
-   - `crossref_resolve_doi` for complete metadata
-   - `semantic_citations` / `semantic_references` for citation network exploration
+   - `scholar_get_paper` for full metadata and abstract (accepts a DOI, PMID, arXiv ID, OpenAlex ID or Semantic Scholar ID)
+   - `scholar_full_text` for open-access full text where the result was flagged `fullTextAvailable`
+   - `scholar_citations` with `direction` set to `citations` or `references` for citation network exploration
 
 9. **Offer library import.** Import selected papers via `library_import_from_search` so they are available for future sessions.
 
@@ -113,5 +113,5 @@ description: Search academic databases (PubMed, arXiv, Semantic Scholar, CrossRe
 | Too many irrelevant results | Query too broad | Add discipline-specific terms, narrow date range, use Boolean operators |
 | No results from specific API | Topic outside that database's scope | Switch to a more appropriate API (e.g., arXiv for CS, PubMed for biomedical) |
 | Duplicate papers across searches | Same paper indexed in multiple databases | `scholar_search` deduplicates internally; cross-check DOIs manually if using individual APIs |
-| Cannot fetch full paper details | DOI missing or invalid | Try `semantic_search` with title, or `crossref_search` to locate the correct DOI |
-| User wants a paper not in search results | Paper may be too old, not indexed, or behind paywall | Try `crossref_resolve_doi` with a known DOI, or `library_import` if user has the file |
+| Cannot fetch full paper details | DOI missing or invalid | Try `scholar_search` with the exact title and `sources: ["crossref", "openalex"]` to locate the correct DOI |
+| User wants a paper not in search results | Paper may be too old, not indexed, or behind paywall | Try `scholar_get_paper` with a known DOI, or `library_import` if user has the file |

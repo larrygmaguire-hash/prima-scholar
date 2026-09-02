@@ -27,7 +27,7 @@ Before searching external databases, call `library_search` with the query. If th
 ## DOI Lookup
 
 If the query is a DOI:
-1. Call `crossref_resolve_doi` with the DOI
+1. Call `scholar_get_paper` with the DOI
 2. Format the result as an APA7 citation
 3. Return the citation
 

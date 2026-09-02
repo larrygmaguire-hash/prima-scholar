@@ -28,7 +28,7 @@ Once the topic is established, ask for scope preferences as a brief numbered lis
 
 1. **Depth:** Quick scan (top 5 results) or Comprehensive (top 15+)?
 2. **Sources:** All databases, or specific ones (PubMed, arXiv, Semantic Scholar, CrossRef)?
-3. **Date range:** Any, or limit to recent N years?
+3. **Date range:** Any, limit to recent N years, or newest first since a given date (recency scan)?
 
 Wait for the user's answers before proceeding.
 

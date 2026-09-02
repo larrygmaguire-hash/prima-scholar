@@ -104,11 +104,14 @@ export class DblpClient implements ScholarClient {
           : info.url ?? ""
       : info.url ?? "";
 
+    const year = info.year ? parseInt(String(info.year), 10) : 0;
+
     const paper: Omit<Paper, "citations"> = {
       title: info.title ?? "Untitled",
       authors,
       abstract: "", // DBLP does not provide abstracts
-      year: info.year ? parseInt(String(info.year), 10) : 0,
+      year,
+      publishedDate: year > 0 ? String(year) : undefined,
       journal: venue,
       volume: info.volume ?? undefined,
       issue: info.number ?? undefined,

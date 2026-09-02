@@ -10,9 +10,27 @@
 
 import { Paper, SearchOptions, ScholarClient } from "./types.js";
 import { RateLimiter } from "./rate-limiter.js";
-import { formatAllCitations } from "./utils.js";
+import { formatAllCitations, normaliseIsoForCompare } from "./utils.js";
 
 const BASE_URL = "https://api.openalex.org";
+
+/** Append a clause to OpenAlex's comma-joined `filter` parameter. */
+function addFilter(params: URLSearchParams, clause: string): void {
+  const existing = params.get("filter");
+  params.set("filter", existing ? `${existing},${clause}` : clause);
+}
+
+/** Map the shared sort mode onto OpenAlex's `sort` parameter. */
+function openAlexSort(sortBy: SearchOptions["sortBy"]): string {
+  switch (sortBy) {
+    case "date":
+      return "publication_date:desc";
+    case "relevance":
+      return "relevance_score:desc";
+    default:
+      return "cited_by_count:desc";
+  }
+}
 
 export class OpenAlexClient implements ScholarClient {
   private rateLimiter = new RateLimiter(10, 1000);
@@ -36,21 +54,27 @@ export class OpenAlexClient implements ScholarClient {
     const params = new URLSearchParams({
       search: query,
       per_page: String(maxResults),
-      sort: "cited_by_count:desc",
+      sort: openAlexSort(options?.sortBy),
     });
 
     // Year filter
     if (options?.yearFrom || options?.yearTo) {
       const from = options?.yearFrom ?? 1900;
       const to = options?.yearTo ?? new Date().getFullYear();
-      params.set("filter", `publication_year:${from}-${to}`);
+      addFilter(params, `publication_year:${from}-${to}`);
+    }
+
+    // Finer-grained publication date filters (inclusive)
+    if (options?.publishedAfter) {
+      addFilter(params, `from_publication_date:${normaliseIsoForCompare(options.publishedAfter, "lower")}`);
+    }
+    if (options?.publishedBefore) {
+      addFilter(params, `to_publication_date:${normaliseIsoForCompare(options.publishedBefore, "upper")}`);
     }
 
     // OA filter
     if (options?.openAccessOnly) {
-      const existing = params.get("filter");
-      const oaFilter = "is_oa:true";
-      params.set("filter", existing ? `${existing},${oaFilter}` : oaFilter);
+      addFilter(params, "is_oa:true");
     }
 
     const url = this.buildUrl("/works", params);
@@ -102,6 +126,7 @@ export class OpenAlexClient implements ScholarClient {
       authors,
       abstract: reconstructAbstract(work.abstract_inverted_index) ?? "",
       year: work.publication_year ?? 0,
+      publishedDate: work.publication_date ?? undefined,
       journal: work.primary_location?.source?.display_name ?? undefined,
       volume: work.biblio?.volume ?? undefined,
       issue: work.biblio?.issue ?? undefined,
@@ -137,6 +162,7 @@ interface OpenAlexWork {
   id: string;
   title?: string;
   publication_year?: number;
+  publication_date?: string;
   doi?: string;
   authorships?: {
     author?: { display_name?: string };

@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 /**
- * PRIMA Scholar Search MCP Server v2.0.2
+ * PRIMA Scholar Search MCP Server v2.1.0
  *
  * A Model Context Protocol server for searching academic literature
  * across 10 databases: PubMed, arXiv, Semantic Scholar, CrossRef,
  * OpenAlex, CORE, Europe PMC, ERIC, bioRxiv/medRxiv, and DBLP.
  *
  * 5-tool surface: wizard, search, get_paper, citations, full_text.
+ * Recency-aware: date-window filtering, venue filtering, DOI exclusion
+ * and selectable sort order on scholar_search.
  *
  * @author PRIMA Contributors
- * @version 2.0.2
+ * @version 2.1.0
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -32,8 +34,18 @@ import { EricClient } from "./eric-client.js";
 import { BiorxivClient } from "./biorxiv-client.js";
 import { DblpClient } from "./dblp-client.js";
 import { TOOLS } from "./tools.js";
-import { CitationStyle, Paper, SourceName, ALL_SOURCES, SearchOptions } from "./types.js";
-import { deduplicateByDoi } from "./utils.js";
+import {
+  CitationStyle,
+  FiltersApplied,
+  Paper,
+  SourceName,
+  ALL_SOURCES,
+  SearchOptions,
+  SearchResult,
+  SortMode,
+  SORT_MODES,
+} from "./types.js";
+import { compareDateDesc, deduplicateByDoi, normaliseDoi, normaliseIsoForCompare, todayIso } from "./utils.js";
 import { runWizard } from "./wizard.js";
 
 // ── Citation Filtering ───────────────────────────────────────────────
@@ -86,7 +98,7 @@ const API_KEY_SOURCES: Record<string, { envVar: string; url: string }> = {
 const server = new Server(
   {
     name: "prima-scholar-search-mcp",
-    version: "2.0.2",
+    version: "2.1.0",
   },
   {
     capabilities: {
@@ -127,11 +139,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const yearTo = args?.year_to as number | undefined;
         const citationStyle = args?.citation_style as CitationStyle | undefined;
 
+        const publishedAfter = parseIsoDateArg(args?.published_after, "published_after");
+        const sortBy = parseSortByArg(args?.sort_by);
+        // Newest-first scans cap at today by default: CrossRef and OpenAlex carry
+        // placeholder future dates (2035, 2121, 2026-12-31) that would otherwise lead.
+        const publishedBefore =
+          parseIsoDateArg(args?.published_before, "published_before") ??
+          (sortBy === "date" ? todayIso() : undefined);
+        const venues = parseStringArrayArg(args?.venues, "venues");
+        const excludeDois = parseStringArrayArg(args?.exclude_dois, "exclude_dois");
+
         const searchOptions: SearchOptions = {
           maxResults,
           yearFrom,
           yearTo,
           openAccessOnly,
+          publishedAfter,
+          publishedBefore,
+          sortBy,
+          venues,
+          excludeDois,
         };
 
         const results = await aggregatedSearch(query, sources, searchOptions);
@@ -215,22 +242,149 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
+// ── Argument Parsing ─────────────────────────────────────────────────
+
+const ISO_DATE_ARG = /^\d{4}(-\d{2}(-\d{2})?)?$/;
+
+function parseIsoDateArg(value: unknown, name: string): string | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value !== "string" || !ISO_DATE_ARG.test(value.trim())) {
+    throw new McpError(
+      ErrorCode.InvalidParams,
+      `${name} must be an ISO date: YYYY-MM-DD, YYYY-MM or YYYY (got ${JSON.stringify(value)})`
+    );
+  }
+  return value.trim();
+}
+
+function parseSortByArg(value: unknown): SortMode | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value !== "string" || !SORT_MODES.includes(value as SortMode)) {
+    throw new McpError(
+      ErrorCode.InvalidParams,
+      `sort_by must be one of ${SORT_MODES.join(", ")} (got ${JSON.stringify(value)})`
+    );
+  }
+  return value as SortMode;
+}
+
+function parseStringArrayArg(value: unknown, name: string): string[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value) || !value.every((v) => typeof v === "string")) {
+    throw new McpError(ErrorCode.InvalidParams, `${name} must be an array of strings`);
+  }
+  const cleaned = (value as string[]).map((v) => v.trim()).filter(Boolean);
+  return cleaned.length > 0 ? cleaned : undefined;
+}
+
+// ── Result Filtering and Sorting ─────────────────────────────────────
+
+/**
+ * Keep a paper only when its publication date could fall inside the
+ * inclusive [publishedAfter, publishedBefore] window. Partial dates are
+ * padded generously so a paper is dropped only when it is certainly
+ * outside the window; papers with no date information are kept.
+ */
+function withinDateWindow(paper: Paper, publishedAfter?: string, publishedBefore?: string): boolean {
+  if (!publishedAfter && !publishedBefore) return true;
+
+  const lowerBound = publishedAfter ? normaliseIsoForCompare(publishedAfter, "lower") : undefined;
+  const upperBound = publishedBefore ? normaliseIsoForCompare(publishedBefore, "upper") : undefined;
+
+  if (paper.publishedDate) {
+    // Latest possible day for this paper must reach the lower bound, and the
+    // earliest possible day must not pass the upper bound.
+    const paperLatest = normaliseIsoForCompare(paper.publishedDate, "upper");
+    const paperEarliest = normaliseIsoForCompare(paper.publishedDate, "lower");
+    if (lowerBound && paperLatest < lowerBound) return false;
+    if (upperBound && paperEarliest > upperBound) return false;
+    return true;
+  }
+
+  if (paper.year && paper.year > 0) {
+    const lowerYear = lowerBound ? Number(lowerBound.substring(0, 4)) : undefined;
+    const upperYear = upperBound ? Number(upperBound.substring(0, 4)) : undefined;
+    if (lowerYear !== undefined && paper.year < lowerYear) return false;
+    if (upperYear !== undefined && paper.year > upperYear) return false;
+    return true;
+  }
+
+  // No date information at all: keep rather than silently drop.
+  return true;
+}
+
+function matchesVenue(paper: Paper, venues: string[]): boolean {
+  const journal = (paper.journal ?? "").toLowerCase();
+  const publisher = (paper.publisher ?? "").toLowerCase();
+  return venues.some((v) => {
+    const term = v.toLowerCase();
+    return term.length > 0 && (journal.includes(term) || publisher.includes(term));
+  });
+}
+
+function compareCitationsDesc(a: Paper, b: Paper): number {
+  const aCount = a.citationCount ?? -1;
+  const bCount = b.citationCount ?? -1;
+  return bCount - aCount;
+}
+
+/**
+ * Interleave papers round-robin across sources, preserving each source's own
+ * rank order: source 1 rank 1, source 2 rank 1, ..., source 1 rank 2, ...
+ */
+function interleaveBySourceRank(papers: Paper[], rankOf: WeakMap<Paper, number>): Paper[] {
+  const bySource = new Map<string, Paper[]>();
+  for (const paper of papers) {
+    const bucket = bySource.get(paper.source) ?? [];
+    bucket.push(paper);
+    bySource.set(paper.source, bucket);
+  }
+  for (const bucket of bySource.values()) {
+    bucket.sort((a, b) => (rankOf.get(a) ?? Number.MAX_SAFE_INTEGER) - (rankOf.get(b) ?? Number.MAX_SAFE_INTEGER));
+  }
+
+  const buckets = [...bySource.values()];
+  const interleaved: Paper[] = [];
+  let depth = 0;
+  while (interleaved.length < papers.length) {
+    for (const bucket of buckets) {
+      if (depth < bucket.length) interleaved.push(bucket[depth]);
+    }
+    depth++;
+  }
+  return interleaved;
+}
+
+function sortPapers(papers: Paper[], sortBy: SortMode, rankOf: WeakMap<Paper, number>): Paper[] {
+  switch (sortBy) {
+    case "citations":
+      return [...papers].sort(compareCitationsDesc);
+    case "date":
+      return [...papers].sort((a, b) => {
+        const byDate = compareDateDesc(a.publishedDate, b.publishedDate, a.year, b.year);
+        return byDate !== 0 ? byDate : compareCitationsDesc(a, b);
+      });
+    case "relevance":
+      return interleaveBySourceRank(papers, rankOf);
+    case "open_access":
+    default:
+      // Original behaviour: OA first, then citation count descending
+      return [...papers].sort((a, b) => {
+        if (a.openAccess && !b.openAccess) return -1;
+        if (!a.openAccess && b.openAccess) return 1;
+        return compareCitationsDesc(a, b);
+      });
+  }
+}
+
 // ── Aggregated Search ────────────────────────────────────────────────
 
 async function aggregatedSearch(
   query: string,
   sources: SourceName[],
   options: SearchOptions
-): Promise<{
-  papers: Paper[];
-  totalResults: number;
-  openAccessCount: number;
-  gatedCount: number;
-  query: string;
-  sources: string[];
-  errors?: string[];
-  missingApiKeys?: string[];
-}> {
+): Promise<SearchResult> {
+  const sortBy: SortMode = options.sortBy ?? "open_access";
   const activeSources: SourceName[] = [];
   const missingApiKeys: string[] = [];
 
@@ -265,9 +419,14 @@ async function aggregatedSearch(
   const successfulSources: string[] = [];
   const errors: string[] = [];
 
+  // Transient per-source rank, used only by the "relevance" sort. Keyed by
+  // object identity so nothing is added to the Paper payload.
+  const rankOf = new WeakMap<Paper, number>();
+
   results.forEach((result, index) => {
     const source = activeSources[index];
     if (result.status === "fulfilled") {
+      result.value.forEach((paper, rank) => rankOf.set(paper, rank));
       allPapers.push(...result.value);
       successfulSources.push(source);
     } else {
@@ -287,19 +446,42 @@ async function aggregatedSearch(
     deduplicated = deduplicated.filter((p) => p.openAccess);
   }
 
-  // Sort: OA first, then by citation count descending
-  deduplicated.sort((a, b) => {
-    // OA papers first
-    if (a.openAccess && !b.openAccess) return -1;
-    if (!a.openAccess && b.openAccess) return 1;
-    // Then by citation count
-    const aCount = a.citationCount ?? -1;
-    const bCount = b.citationCount ?? -1;
-    return bCount - aCount;
-  });
+  // 1. Date window (client-side, all sources; catches what the APIs let through)
+  if (options.publishedAfter || options.publishedBefore) {
+    deduplicated = deduplicated.filter((p) =>
+      withinDateWindow(p, options.publishedAfter, options.publishedBefore)
+    );
+  }
+
+  // 2. Venue filter
+  if (options.venues && options.venues.length > 0) {
+    deduplicated = deduplicated.filter((p) => matchesVenue(p, options.venues!));
+  }
+
+  // 3. DOI exclusion
+  let excludedDois = 0;
+  if (options.excludeDois && options.excludeDois.length > 0) {
+    const excluded = new Set(options.excludeDois.map(normaliseDoi));
+    const before = deduplicated.length;
+    deduplicated = deduplicated.filter((p) => !p.doi || !excluded.has(normaliseDoi(p.doi)));
+    excludedDois = before - deduplicated.length;
+  }
+
+  // 4. Sort
+  deduplicated = sortPapers(deduplicated, sortBy, rankOf);
 
   const openAccessCount = deduplicated.filter((p) => p.openAccess).length;
   const gatedCount = deduplicated.length - openAccessCount;
+
+  const filtersApplied: FiltersApplied = {
+    ...(options.publishedAfter ? { publishedAfter: options.publishedAfter } : {}),
+    ...(options.publishedBefore ? { publishedBefore: options.publishedBefore } : {}),
+    ...(options.venues && options.venues.length > 0 ? { venues: options.venues } : {}),
+    ...(options.excludeDois && options.excludeDois.length > 0 ? { excludedDois } : {}),
+    ...(options.yearFrom ? { yearFrom: options.yearFrom } : {}),
+    ...(options.yearTo ? { yearTo: options.yearTo } : {}),
+    ...(options.openAccessOnly ? { openAccessOnly: true } : {}),
+  };
 
   return {
     papers: deduplicated,
@@ -308,6 +490,8 @@ async function aggregatedSearch(
     gatedCount,
     query,
     sources: successfulSources,
+    sortBy,
+    ...(Object.keys(filtersApplied).length > 0 ? { filtersApplied } : {}),
     ...(errors.length > 0 ? { errors } : {}),
     ...(missingApiKeys.length > 0 ? { missingApiKeys } : {}),
   };
@@ -419,7 +603,7 @@ async function retrieveFullText(id: string): Promise<{
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("PRIMA Scholar Search MCP Server v2.0.2 running on stdio");
+  console.error("PRIMA Scholar Search MCP Server v2.1.0 running on stdio");
 }
 
 main().catch((error) => {

@@ -57,6 +57,8 @@ export interface Paper {
   authors: Author[];
   abstract: string;
   year: number;
+  /** ISO date: YYYY-MM-DD, or YYYY-MM / YYYY when only a partial date is known. */
+  publishedDate?: string;
   journal?: string;
   volume?: string;
   issue?: string;
@@ -78,8 +80,31 @@ export interface Paper {
 
 // ── Search ───────────────────────────────────────────────────────────
 
+export type SortMode = "open_access" | "citations" | "date" | "relevance";
+
+export const SORT_MODES: SortMode[] = ["open_access", "citations", "date", "relevance"];
+
 export interface SearchOptions {
   maxResults?: number;
+  yearFrom?: number;
+  yearTo?: number;
+  openAccessOnly?: boolean;
+  /** ISO date (YYYY-MM-DD, YYYY-MM or YYYY), inclusive lower bound on publication date. */
+  publishedAfter?: string;
+  /** ISO date (YYYY-MM-DD, YYYY-MM or YYYY), inclusive upper bound on publication date. */
+  publishedBefore?: string;
+  sortBy?: SortMode;
+  /** Case-insensitive substring match on journal or publisher name. */
+  venues?: string[];
+  /** DOIs to drop from results, e.g. papers already held in a library. */
+  excludeDois?: string[];
+}
+
+export interface FiltersApplied {
+  publishedAfter?: string;
+  publishedBefore?: string;
+  venues?: string[];
+  excludedDois?: number;
   yearFrom?: number;
   yearTo?: number;
   openAccessOnly?: boolean;
@@ -90,6 +115,8 @@ export interface SearchResult {
   totalResults: number;
   query: string;
   sources: string[];
+  sortBy: SortMode;
+  filtersApplied?: FiltersApplied;
   openAccessCount?: number;
   gatedCount?: number;
   errors?: string[];

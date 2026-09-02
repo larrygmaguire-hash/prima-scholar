@@ -8,9 +8,14 @@
 import { XMLParser } from "fast-xml-parser";
 import { Paper, SearchOptions, ScholarClient } from "./types.js";
 import { RateLimiter } from "./rate-limiter.js";
-import { formatAllCitations } from "./utils.js";
+import { formatAllCitations, normaliseIsoForCompare, toIsoDate, todayIso } from "./utils.js";
 
 const BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils";
+
+/** PubMed's mindate/maxdate want YYYY/MM/DD with slashes. */
+function pubmedDate(isoDate: string): string {
+  return isoDate.replace(/-/g, "/");
+}
 
 export class PubMedClient implements ScholarClient {
   private rateLimiter: RateLimiter;
@@ -51,6 +56,28 @@ export class PubMedClient implements ScholarClient {
       retmax: String(maxResults),
       retmode: "json",
     });
+
+    // Publication date filter. E-utilities require both mindate and maxdate
+    // when either is set, so the open side gets a wide default.
+    if (options?.publishedAfter || options?.publishedBefore || options?.yearFrom || options?.yearTo) {
+      const lower = options?.publishedAfter
+        ? normaliseIsoForCompare(options.publishedAfter, "lower")
+        : options?.yearFrom
+          ? `${options.yearFrom}-01-01`
+          : "1900-01-01";
+      const upper = options?.publishedBefore
+        ? normaliseIsoForCompare(options.publishedBefore, "upper")
+        : options?.yearTo
+          ? `${options.yearTo}-12-31`
+          : todayIso();
+      searchParams.set("datetype", "pdat");
+      searchParams.set("mindate", pubmedDate(lower));
+      searchParams.set("maxdate", pubmedDate(upper));
+    }
+
+    if (options?.sortBy === "date") {
+      searchParams.set("sort", "pub_date");
+    }
 
     const searchUrl = this.appendApiKey(
       `${BASE_URL}/esearch.fcgi?${searchParams}`
@@ -153,8 +180,9 @@ export class PubMedClient implements ScholarClient {
     // Abstract — may be a string, an object, or an array of sections
     const abstract = this.parseAbstract(articleData?.Abstract?.AbstractText);
 
-    // Year
+    // Year and ISO publication date
     const year = this.parseYear(articleData);
+    const publishedDate = this.parsePublishedDate(articleData);
 
     // Journal
     const journal = articleData?.Journal?.Title ?? undefined;
@@ -176,6 +204,7 @@ export class PubMedClient implements ScholarClient {
       authors,
       abstract,
       year,
+      publishedDate,
       journal,
       volume,
       issue,
@@ -246,6 +275,28 @@ export class PubMedClient implements ScholarClient {
     }
 
     return 0;
+  }
+
+  /**
+   * Build an ISO date from JournalIssue PubDate (Year/Month/Day, where Month
+   * may be a name such as "Aug"), falling back to the first ArticleDate.
+   */
+  private parsePublishedDate(articleData: any): string | undefined {
+    const pubDate = articleData?.Journal?.JournalIssue?.PubDate;
+    if (pubDate?.Year) {
+      const iso = toIsoDate([pubDate.Year, pubDate.Month, pubDate.Day]);
+      if (iso) return iso;
+    }
+
+    const articleDate = articleData?.ArticleDate;
+    if (articleDate) {
+      const dateObj = Array.isArray(articleDate) ? articleDate[0] : articleDate;
+      if (dateObj?.Year) {
+        return toIsoDate([dateObj.Year, dateObj.Month, dateObj.Day]);
+      }
+    }
+
+    return undefined;
   }
 
   private parseDoi(article: any): string | undefined {

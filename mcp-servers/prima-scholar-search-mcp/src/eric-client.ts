@@ -83,11 +83,14 @@ export class EricClient implements ScholarClient {
       ? `https://files.eric.ed.gov/fulltext/${doc.id}.pdf`
       : undefined;
 
+    const year = doc.publicationdateyear ?? 0;
+
     const paper: Omit<Paper, "citations"> = {
       title: doc.title ?? "Untitled",
       authors,
       abstract: doc.description ?? "",
-      year: doc.publicationdateyear ?? 0,
+      year,
+      publishedDate: year > 0 ? String(year) : undefined,
       journal: doc.source ?? undefined,
       volume: undefined,
       issue: undefined,

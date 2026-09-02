@@ -117,6 +117,7 @@ export class CoreClient implements ScholarClient {
       authors,
       abstract: work.abstract ?? "",
       year: work.yearPublished ?? 0,
+      publishedDate: work.publishedDate ? work.publishedDate.substring(0, 10) : undefined,
       journal: work.journal?.title ?? undefined,
       volume: undefined,
       issue: undefined,
@@ -150,6 +151,7 @@ interface CoreWork {
   authors?: { name?: string }[];
   abstract?: string;
   yearPublished?: number;
+  publishedDate?: string;
   doi?: string;
   journal?: { title?: string };
   publisher?: string;

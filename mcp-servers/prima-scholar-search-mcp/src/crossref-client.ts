@@ -8,7 +8,7 @@
 
 import { Paper, SearchOptions, ScholarClient } from "./types.js";
 import { RateLimiter } from "./rate-limiter.js";
-import { formatAllCitations, normaliseDoi } from "./utils.js";
+import { formatAllCitations, normaliseDoi, normaliseIsoForCompare, toIsoDate } from "./utils.js";
 
 const BASE_URL = "https://api.crossref.org";
 
@@ -41,6 +41,32 @@ export class CrossRefClient implements ScholarClient {
       query,
       rows: String(maxResults),
     });
+
+    // Publication date filters. The finer publishedAfter/publishedBefore
+    // take precedence over yearFrom/yearTo when both are supplied.
+    const filters: string[] = [];
+    if (options?.publishedAfter) {
+      filters.push(`from-pub-date:${normaliseIsoForCompare(options.publishedAfter, "lower")}`);
+    } else if (options?.yearFrom) {
+      filters.push(`from-pub-date:${options.yearFrom}-01-01`);
+    }
+    if (options?.publishedBefore) {
+      filters.push(`until-pub-date:${normaliseIsoForCompare(options.publishedBefore, "upper")}`);
+    } else if (options?.yearTo) {
+      filters.push(`until-pub-date:${options.yearTo}-12-31`);
+    }
+    if (filters.length > 0) {
+      params.set("filter", filters.join(","));
+    }
+
+    // Sort. CrossRef defaults to relevance when no sort parameter is given.
+    if (options?.sortBy === "date") {
+      params.set("sort", "published");
+      params.set("order", "desc");
+    } else if (options?.sortBy === "citations") {
+      params.set("sort", "is-referenced-by-count");
+      params.set("order", "desc");
+    }
 
     const response = await fetch(`${BASE_URL}/works?${params}`, {
       headers: this.getHeaders(),
@@ -93,8 +119,10 @@ export class CrossRefClient implements ScholarClient {
     const rawAbstract = item.abstract ?? "";
     const abstract = rawAbstract.replace(/<[^>]*>/g, "").trim();
 
-    // Extract year from multiple possible date fields
-    const year = this.extractYear(item);
+    // Extract year and full date from multiple possible date fields
+    const dateParts = this.extractDateParts(item);
+    const year = dateParts?.[0] ? Number(dateParts[0]) : 0;
+    const publishedDate = dateParts ? toIsoDate(dateParts) : undefined;
 
     const journal = Array.isArray(item["container-title"])
       ? item["container-title"][0]
@@ -120,6 +148,7 @@ export class CrossRefClient implements ScholarClient {
       authors,
       abstract,
       year,
+      publishedDate,
       journal: journal || undefined,
       volume,
       issue,
@@ -129,6 +158,10 @@ export class CrossRefClient implements ScholarClient {
       url,
       source: "crossref",
       sourceId: doi ?? "",
+      citationCount:
+        typeof item["is-referenced-by-count"] === "number"
+          ? item["is-referenced-by-count"]
+          : undefined,
       openAccess: hasOaLicence,
       openAccessUrl: hasOaLicence ? url : undefined,
       fullTextAvailable: false, // CrossRef provides metadata, not full text
@@ -139,15 +172,19 @@ export class CrossRefClient implements ScholarClient {
     return paper;
   }
 
-  private extractYear(item: any): number {
+  /**
+   * Pick the best available date-parts array. Precedence: published-print,
+   * published-online, then the deposit `created` date.
+   */
+  private extractDateParts(item: any): (number | undefined)[] | undefined {
     const dateParts =
       item["published-print"]?.["date-parts"]?.[0] ??
       item["published-online"]?.["date-parts"]?.[0] ??
       item.created?.["date-parts"]?.[0];
 
-    if (dateParts && dateParts[0]) {
-      return dateParts[0];
+    if (Array.isArray(dateParts) && dateParts[0]) {
+      return dateParts;
     }
-    return 0;
+    return undefined;
   }
 }

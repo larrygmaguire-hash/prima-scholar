@@ -3,7 +3,7 @@ name: form-completion-agent
 description: Takes a structured template, questionnaire, or form and systematically finds answers from the research library and academic databases. Use for grant applications, compliance forms, literature review matrices, or any structured research task.
 tools:
   - mcp__prima-scholar-search__scholar_search
-  - mcp__prima-scholar-search__crossref_resolve_doi
+  - mcp__prima-scholar-search__scholar_get_paper
   - mcp__prima-scholar-library__library_search
   - mcp__prima-scholar-library__library_get_document
   - Read

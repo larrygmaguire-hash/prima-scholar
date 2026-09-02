@@ -8,9 +8,14 @@
 import { XMLParser } from "fast-xml-parser";
 import { Paper, SearchOptions, ScholarClient } from "./types.js";
 import { RateLimiter } from "./rate-limiter.js";
-import { formatAllCitations } from "./utils.js";
+import { formatAllCitations, normaliseIsoForCompare, todayIso } from "./utils.js";
 
 const BASE_URL = "http://export.arxiv.org/api/query";
+
+/** arXiv's submittedDate range syntax wants YYYYMMDDHHMM with no separators. */
+function arxivStamp(isoDate: string, time: "0000" | "2359"): string {
+  return `${isoDate.replace(/-/g, "")}${time}`;
+}
 
 export class ArxivClient implements ScholarClient {
   // arXiv requests 1 request per 3 seconds
@@ -31,11 +36,36 @@ export class ArxivClient implements ScholarClient {
     const maxResults = options?.maxResults ?? 10;
     await this.rateLimiter.acquire();
 
+    let searchQuery = `all:${query}`;
+
+    // Date filter on submission date. The finer publishedAfter/publishedBefore
+    // take precedence over yearFrom/yearTo.
+    if (options?.publishedAfter || options?.publishedBefore || options?.yearFrom || options?.yearTo) {
+      const lower = options?.publishedAfter
+        ? normaliseIsoForCompare(options.publishedAfter, "lower")
+        : options?.yearFrom
+          ? `${options.yearFrom}-01-01`
+          : "1991-01-01";
+      const upper = options?.publishedBefore
+        ? normaliseIsoForCompare(options.publishedBefore, "upper")
+        : options?.yearTo
+          ? `${options.yearTo}-12-31`
+          : todayIso();
+      searchQuery += ` AND submittedDate:[${arxivStamp(lower, "0000")} TO ${arxivStamp(upper, "2359")}]`;
+    }
+
     const params = new URLSearchParams({
-      search_query: `all:${query}`,
+      search_query: searchQuery,
       start: "0",
       max_results: String(maxResults),
     });
+
+    if (options?.sortBy === "date") {
+      params.set("sortBy", "submittedDate");
+      params.set("sortOrder", "descending");
+    } else {
+      params.set("sortBy", "relevance");
+    }
 
     const response = await fetch(`${BASE_URL}?${params}`);
 
@@ -113,9 +143,10 @@ export class ArxivClient implements ScholarClient {
       .replace(/\s+/g, " ")
       .trim();
 
-    // Year from published date
+    // Year and ISO date from published timestamp
     const published = String(entry.published ?? "");
     const year = published ? Number(published.substring(0, 4)) : 0;
+    const publishedDate = published.length >= 10 ? published.substring(0, 10) : undefined;
 
     // arXiv URL and ID
     const url = this.extractUrl(entry);
@@ -133,6 +164,7 @@ export class ArxivClient implements ScholarClient {
       authors,
       abstract,
       year,
+      publishedDate,
       journal: undefined,
       doi,
       url,

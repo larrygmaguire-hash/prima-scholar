@@ -111,17 +111,23 @@ Call this before `scholar_search` to guide users through search refinement.
 
 Search across all 10 databases simultaneously. Features:
 - Automatic deduplication by DOI (keeps the result with the richest metadata)
-- Results sorted: open access first, then by citation count
-- Configurable source selection, date range, and OA filtering
-- Each result includes `openAccess` (boolean), `openAccessUrl`, and `fullTextAvailable` fields
+- Results sorted: open access first, then by citation count (default), or by citations, date, or per-source relevance
+- Configurable source selection, date range, date window, venue filter, DOI exclusion, and OA filtering
+- Each result includes `openAccess` (boolean), `openAccessUrl`, `fullTextAvailable`, and `publishedDate` fields
 
 Parameters:
 - `query` (required) -- search terms
 - `sources` -- array of database names to search (default: all available)
 - `open_access_only` -- filter to OA papers only (default: false)
-- `year_from` / `year_to` -- publication date range
+- `year_from` / `year_to` -- publication year range
+- `published_after` / `published_before` -- inclusive ISO date window (`YYYY-MM-DD`, `YYYY-MM`, or `YYYY`); finer than the year range and preferred over it
+- `sort_by` -- `open_access` (default), `citations`, `date` (newest first), or `relevance` (per-source rank, interleaved)
+- `venues` -- case-insensitive substring match on journal or publisher name, applied after retrieval
+- `exclude_dois` -- DOIs to drop, e.g. papers already in your library
 - `max_results` -- per source (default: 10)
 - `citation_style` -- return citations in one format only (default: all 6)
+
+The response carries `sortBy` and a `filtersApplied` object so the caller can see exactly which constraints were in force.
 
 ### scholar_get_paper
 
@@ -223,6 +229,36 @@ scholar_citations with:
 scholar_full_text with id: "PMC1234567"
 ```
 
+## Recency Scanning
+
+Use `published_after` with `sort_by: "date"` to answer "what has been published since DATE on X". New papers have few citations, so the default open-access-then-citations ordering would bury them; `date` puts them first. The date window is pushed to each source API where it supports one (OpenAlex, CrossRef, Semantic Scholar, arXiv, PubMed, Europe PMC, bioRxiv/medRxiv) and re-checked client-side for every source, so year-only databases (ERIC, DBLP) are filtered on year.
+
+Newest since a date, newest first:
+
+```json
+{
+  "query": "psychological safety hybrid teams",
+  "published_after": "2026-06-01",
+  "sort_by": "date",
+  "max_results": 25
+}
+```
+
+Venue-filtered, skipping papers already in the library:
+
+```json
+{
+  "query": "generative AI workplace productivity",
+  "published_after": "2026-01",
+  "venues": ["Journal of Applied Psychology", "NBER", "SSRN"],
+  "exclude_dois": ["10.1037/apl0001234", "https://doi.org/10.3386/w33456"],
+  "sort_by": "date",
+  "max_results": 50
+}
+```
+
+The venue filter runs after retrieval, so raise `max_results` to give it enough candidates. Publisher metadata is not always tidy: some sources return forthcoming works with placeholder or clearly wrong future dates, so set `published_before` to today when a strict "already out" list is needed.
+
 ## Output Format
 
 Every paper result includes:
@@ -231,6 +267,7 @@ Every paper result includes:
 - **authors** -- list of author names with optional affiliations
 - **abstract** -- full abstract text
 - **year** -- publication year
+- **publishedDate** -- ISO publication date where the source supplies one (`YYYY-MM-DD`, or `YYYY-MM` / `YYYY` when only a partial date is known)
 - **journal** -- journal or venue name
 - **doi** -- DOI if available
 - **url** -- direct link to the paper
