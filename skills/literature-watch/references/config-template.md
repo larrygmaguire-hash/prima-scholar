@@ -10,7 +10,7 @@ One paragraph stating what you are watching for and why. The agent uses this to 
 
 ## Settings
 
-- digest_dir: `Research/Literature Watch` (relative to the workspace root)
+- digest_dir: `Documentation/Reports/Literature Watch` (relative to the workspace root; exists in every AI Business OS layout. In a 3.0.0 workspace `Domains/14 Research & Development/14.4 Research Archive/Literature Watch` is the natural alternative)
 - default_lookback_days: 14
 - max_results_per_source: 20
 - include_preprints: true

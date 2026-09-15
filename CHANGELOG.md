@@ -2,6 +2,12 @@
 
 All notable changes to PRIMA Scholar are documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- `literature-watch` config template: the default `digest_dir` is now `Documentation/Reports/Literature Watch`, a folder present in every AI Business OS layout. The previous default, `Research/Literature Watch`, existed in no layout. The 3.0.0 domain alternative is noted alongside it.
+
 ## [2.1.0] - 2026-09-02
 
 Search MCP server 2.1.0. Library MCP server unchanged.
