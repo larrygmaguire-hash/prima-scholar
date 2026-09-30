@@ -35,7 +35,7 @@ You run a single literature-watch scan. Your prompt gives you: the config path, 
 
 4. **De-duplicate** across all calls by normalised DOI, then by lower-cased title when a DOI is absent.
 
-5. **Recover missing abstracts.** For each remaining paper with an empty abstract and a DOI, call `scholar_get_paper` once with the DOI and take any abstract it returns. One call per paper, no retries. A paper still without an abstract after this step is handled by the `missing_abstract` setting in step 6.
+5. **Recover missing abstracts.** For each remaining paper with an empty abstract, call `scholar_search` once with the exact title as `query`, `sources: ["openalex", "europe_pmc"]`, `sort_by: "relevance"` and `max_results: 3`. Take the abstract of the result whose DOI matches (or, without a DOI, whose title matches when lower-cased). `scholar_get_paper` is not used here, because it routes a DOI to CrossRef, the source most often missing the abstract. One call per paper, no retries. A paper still without an abstract after this step is handled by the `missing_abstract` setting in step 6.
 
 6. **Screen** every remaining paper against the Interest paragraph and the screening rules. Decide include or exclude from title, abstract, venue and evidence type. Preprints follow `include_preprints`. Record a three-to-eight-word reason for each exclusion. A paper with no abstract follows `missing_abstract` from settings (default `relegate`):
    - `relegate`: never selected or imported. If its title and venue would pass the screen, list it under "Abstract Unavailable" in the digest so the reader can open it by hand. Otherwise screen it out as usual.

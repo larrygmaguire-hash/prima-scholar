@@ -11,7 +11,7 @@ Plugin components only. Search and Library MCP servers unchanged.
 ### Added
 
 - `literature-watch` per-group overrides: optional `sort_by`, `max_results` and `venues` on any topic group, and optional `sources`, `sort_by` and `max_results` on the venue sweep. Unset fields fall back to the settings, so existing configs behave as before.
-- `literature-watch` missing-abstract handling: the agent tries one `scholar_get_paper` lookup by DOI for any paper with an empty abstract, then applies the new `missing_abstract` setting (`relegate`, the default, `exclude` or `include`). Relegated papers are never selected or imported and are listed in a new "Abstract Unavailable" digest section. The sidecar gains `relegatedDois` and the run record gains `relegated`.
+- `literature-watch` missing-abstract handling: the agent tries one title search on OpenAlex and Europe PMC for any paper with an empty abstract (not `scholar_get_paper`, which routes a DOI to CrossRef, the source most often missing it), then applies the new `missing_abstract` setting (`relegate`, the default, `exclude` or `include`). Relegated papers are never selected or imported and are listed in a new "Abstract Unavailable" digest section. The sidecar gains `relegatedDois` and the run record gains `relegated`.
 - Config template example of a publisher sweep group (Frontiers via CrossRef with relevance sort and a venue filter).
 - Troubleshooting rows for CrossRef date-sorted results bunching on the last day of the window, and for post-retrieval venue filters that find almost nothing.
 

@@ -36,7 +36,7 @@ The agent applies the rules in the config. Defaults when the config is silent:
 - **Include** empirical studies, systematic reviews and meta-analyses, substantive theory or conceptual papers in the listed venues, and working papers from the listed series.
 - **Exclude** technical machine-learning papers with no workplace, labour or organisational dimension, clinical AI unless the subject is clinicians' work, education technology unless the subject is workforce or professional learning, opinion pieces without argument or data, anything already in the library.
 - **Preprints** are included only when `include_preprints: true` and are labelled as preprints in the digest.
-- **Missing abstracts** follow `missing_abstract` (default `relegate`). The agent first tries one `scholar_get_paper` lookup by DOI, because CrossRef often lacks an abstract that OpenAlex or Semantic Scholar holds. A paper still without one is never selected or imported under `relegate` or `exclude`, since a finding cannot be reported from a title.
+- **Missing abstracts** follow `missing_abstract` (default `relegate`). The agent first tries one title search on OpenAlex and Europe PMC, because CrossRef often lacks an abstract that those sources hold. A paper still without one is never selected or imported under `relegate` or `exclude`, since a finding cannot be reported from a title.
 
 ## Digest Format
 

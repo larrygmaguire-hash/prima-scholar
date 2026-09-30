@@ -16,7 +16,7 @@ One paragraph stating what you are watching for and why. The agent uses this to 
 - include_preprints: true
 - library_tags: `literature-watch`
 - library_collection: `Literature Watch`
-- missing_abstract: `relegate` (a paper with no abstract, after one lookup by DOI, is never selected or imported. `relegate` lists it under "Abstract Unavailable" when its title would pass the screen. `exclude` screens it out. `include` screens it on title alone, the behaviour before 2.2.0)
+- missing_abstract: `relegate` (a paper with no abstract, after one title search on OpenAlex and Europe PMC, is never selected or imported. `relegate` lists it under "Abstract Unavailable" when its title would pass the screen. `exclude` screens it out. `include` screens it on title alone, the behaviour before 2.2.0)
 
 ## Topic Groups
 
