@@ -16,10 +16,17 @@ One paragraph stating what you are watching for and why. The agent uses this to 
 - include_preprints: true
 - library_tags: `literature-watch`
 - library_collection: `Literature Watch`
+- missing_abstract: `relegate` (a paper with no abstract, after one lookup by DOI, is never selected or imported. `relegate` lists it under "Abstract Unavailable" when its title would pass the screen. `exclude` screens it out. `include` screens it on title alone, the behaviour before 2.2.0)
 
 ## Topic Groups
 
 One group per heading. `query` is passed to `scholar_search`. `sources` is the list for that call. `theme` is the digest heading the group feeds. Several groups may share a theme.
+
+Optional per-group fields override the settings for that group only:
+
+- `sort_by`: `date` (the default) or `relevance`. Use `relevance` for a group that searches CrossRef. With `date`, CrossRef returns the newest records matching any query word, and on a broad query those cover less than a day of the window. With `relevance`, it ranks the whole window.
+- `max_results`: results per source for this group, in place of `max_results_per_source`.
+- `venues`: journal or publisher substrings, applied after retrieval. Pair with `sort_by: relevance`, a higher `max_results` and the publisher's name in the query, so the retrieved set holds enough of that publisher's records to filter.
 
 ### Group A
 
@@ -33,9 +40,18 @@ One group per heading. `query` is passed to `scholar_search`. `sources` is the l
 - query: `("artificial intelligence" OR "generative AI") AND (employees OR "job satisfaction" OR wellbeing OR autonomy OR "human-AI collaboration")`
 - sources: openalex, semantic_scholar
 
+### Group C (Publisher Sweep Example)
+
+- theme: Work Design and Wellbeing
+- query: `Frontiers artificial intelligence employees workplace`
+- sources: crossref
+- sort_by: relevance
+- max_results: 100
+- venues: Frontiers in
+
 ## Venue Sweep
 
-A short list of journals and working-paper series to sweep with a broad query and the `venues` filter, catching items the topic queries miss. Use distinctive substrings.
+A short list of journals and working-paper series to sweep with a broad query and the `venues` filter, catching items the topic queries miss. Use distinctive substrings. `sources`, `sort_by` and `max_results` are optional here too. Without them the sweep uses OpenAlex and CrossRef, the groups' sort order and twice `max_results_per_source`.
 
 - sweep_query: `artificial intelligence`
 - venues: Journal of Applied Psychology, Human Relations, Work, Employment and Society, NBER, SSRN, IZA

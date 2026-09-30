@@ -17,6 +17,12 @@ Evidence type: [empirical survey | field experiment | panel data | systematic re
 
 ...
 
+## Abstract Unavailable
+
+Papers whose title and venue passed the screen but which had no abstract, even after a lookup by DOI. Not selected or imported. Open them by hand to judge. Omit this section when empty or when `missing_abstract` is not `relegate`.
+
+- [Title] ([Venue], [Year]). [DOI link]
+
 ## Also Surfaced, Not Selected
 
 - [Title] ([Venue], [Year]). Reason: [three to eight words]

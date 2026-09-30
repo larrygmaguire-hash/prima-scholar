@@ -24,29 +24,35 @@ You run a single literature-watch scan. Your prompt gives you: the config path, 
 2. **Scan each topic group** with one `scholar_search` call:
    - `query` from the group, `sources` from the group
    - `published_after` = the `since` date
-   - `sort_by` = `"date"` (mandatory; new papers have few citations and vanish under the default sort)
-   - `max_results` = `max_results_per_source` from settings
+   - `sort_by` = the group's `sort_by` if set, otherwise `"date"` (new papers have few citations and vanish under the default sort)
+   - `max_results` = the group's `max_results` if set, otherwise `max_results_per_source` from settings
+   - `venues` = the group's `venues` if set, otherwise omit
    - `exclude_dois` = the list from your prompt
    - `citation_style` = `"apa7"`
-   Record any `errors` the result reports.
+   Record any `errors` the result reports. A group-level value always overrides the setting; never drop a field the group sets.
 
-3. **Run the venue sweep** with one `scholar_search` call: `sweep_query`, `venues` from the config, `sources: ["openalex", "crossref"]`, the same `published_after`, `sort_by`, `exclude_dois` and `max_results` doubled.
+3. **Run the venue sweep** with one `scholar_search` call: `sweep_query`, `venues` from the config, `sources` from the sweep section if set (otherwise `["openalex", "crossref"]`), the same `published_after` and `exclude_dois`, `sort_by` from the sweep section if set (otherwise the same as the groups), and `max_results` from the sweep section if set (otherwise `max_results_per_source` doubled).
 
 4. **De-duplicate** across all calls by normalised DOI, then by lower-cased title when a DOI is absent.
 
-5. **Screen** every remaining paper against the Interest paragraph and the screening rules. Decide include or exclude from title, abstract, venue and evidence type. Preprints follow `include_preprints`. Record a three-to-eight-word reason for each exclusion.
+5. **Recover missing abstracts.** For each remaining paper with an empty abstract and a DOI, call `scholar_get_paper` once with the DOI and take any abstract it returns. One call per paper, no retries. A paper still without an abstract after this step is handled by the `missing_abstract` setting in step 6.
 
-6. **Write the digest** to the digest path following the digest template in the skill's references folder (`references/digest-template.md`, sibling of the config template). Group selected papers under the theme headings from the config. Use the `apa7` citation string the server returned. Findings are hedged ("the authors report", "suggests", "is associated with"). Title Case for every heading. No em dashes, colons or semicolons in prose. Mark a dry run in the header.
+6. **Screen** every remaining paper against the Interest paragraph and the screening rules. Decide include or exclude from title, abstract, venue and evidence type. Preprints follow `include_preprints`. Record a three-to-eight-word reason for each exclusion. A paper with no abstract follows `missing_abstract` from settings (default `relegate`):
+   - `relegate`: never selected or imported. If its title and venue would pass the screen, list it under "Abstract Unavailable" in the digest so the reader can open it by hand. Otherwise screen it out as usual.
+   - `exclude`: screen it out with the reason "no abstract available".
+   - `include`: screen it on title and venue alone, and say in the entry that the abstract was unavailable.
 
-7. **Write the sidecar** to the sidecar path as JSON: `{"runDate", "since", "found", "selected", "selectedDois": [], "excludedDois": [], "errors": []}`. Include DOIs only where present.
+7. **Write the digest** to the digest path following the digest template in the skill's references folder (`references/digest-template.md`, sibling of the config template). Group selected papers under the theme headings from the config. Use the `apa7` citation string the server returned. Findings are hedged ("the authors report", "suggests", "is associated with"). Title Case for every heading. No em dashes, colons or semicolons in prose. Mark a dry run in the header.
 
-8. **Import selected papers** (skip on dry run) with `library_import_from_search`, passing the paper objects the search returned. Tag each with the config's `library_tags`. If `library_collection` is set, create it when it does not exist and add each import to it.
+8. **Write the sidecar** to the sidecar path as JSON: `{"runDate", "since", "found", "selected", "selectedDois": [], "excludedDois": [], "relegatedDois": [], "errors": []}`. Include DOIs only where present.
 
-9. **Return** exactly this and nothing more: the digest path, the sidecar path, `found: N`, `selected: N`, and one line per source error. Do not return paper lists or digest text.
+9. **Import selected papers** (skip on dry run) with `library_import_from_search`, passing the paper objects the search returned. Tag each with the config's `library_tags`. If `library_collection` is set, create it when it does not exist and add each import to it.
+
+10. **Return** exactly this and nothing more: the digest path, the sidecar path, `found: N`, `selected: N`, `relegated: N`, and one line per source error. Do not return paper lists or digest text.
 
 ## Rules
 
 - UK English throughout.
 - Never invent a paper, author, venue, year or DOI. Every entry comes from a search result.
-- Never state a finding the abstract does not support. Where the abstract is empty, say the abstract was unavailable and describe the title only.
+- Never state a finding the abstract does not support. A paper with no abstract is handled by `missing_abstract`; under `include`, say the abstract was unavailable and describe the title only.
 - If every search call fails, write no digest, and return the errors.

@@ -21,9 +21,9 @@ A recurring recency scan. Where `researching-topics` answers one question once, 
 
 3. **Dispatch the scan** to the `literature-watch-agent` subagent. The prompt carries: the config path, the `since` date, the most recent 150 DOIs from `seenDois` (as the `exclude_dois` argument), the digest output path `[digestDir]/YYYY-MM-DD-literature-watch.md`, and the sidecar path `[digestDir]/YYYY-MM-DD-literature-watch-selected.json`. The agent searches, screens, writes the digest and the sidecar, imports the selected papers to the library, and returns only the two paths plus counts.
 
-4. **Update state** from the sidecar with Bash and jq: set `lastRun` to today, append the selected and screened-out DOIs to `seenDois` (cap 2,000, oldest dropped), append a run record `{date, since, found, selected}` to `runs` (cap 52). Never edit the state file with an editor tool.
+4. **Update state** from the sidecar with Bash and jq: set `lastRun` to today, append the selected, screened-out and relegated DOIs to `seenDois` in that order without re-sorting the array (cap 2,000, oldest dropped), append a run record `{date, since, found, selected, relegated}` to `runs` (cap 52). Never edit the state file with an editor tool.
 
-5. **Report** in five lines or fewer: digest path, papers found, papers selected, the top two or three titles, and any source errors the agent reported. Do not paste the digest into the conversation.
+5. **Report** in five lines or fewer: digest path, papers found, papers selected, papers relegated for want of an abstract, the top two or three titles, and any source errors the agent reported. Do not paste the digest into the conversation.
 
 ## Dry Run
 
@@ -36,16 +36,19 @@ The agent applies the rules in the config. Defaults when the config is silent:
 - **Include** empirical studies, systematic reviews and meta-analyses, substantive theory or conceptual papers in the listed venues, and working papers from the listed series.
 - **Exclude** technical machine-learning papers with no workplace, labour or organisational dimension, clinical AI unless the subject is clinicians' work, education technology unless the subject is workforce or professional learning, opinion pieces without argument or data, anything already in the library.
 - **Preprints** are included only when `include_preprints: true` and are labelled as preprints in the digest.
+- **Missing abstracts** follow `missing_abstract` (default `relegate`). The agent first tries one `scholar_get_paper` lookup by DOI, because CrossRef often lacks an abstract that OpenAlex or Semantic Scholar holds. A paper still without one is never selected or imported under `relegate` or `exclude`, since a finding cannot be reported from a title.
 
 ## Digest Format
 
-Follow `references/digest-template.md`. Group papers under the config's theme headings, one entry per paper: APA7 reference, evidence type, one-sentence finding written in hedged language drawn from the abstract, one sentence on relevance to the config's stated interest, and a link (open-access URL where available, otherwise the DOI). Close with an "Also Surfaced, Not Selected" list of titles so the reader can audit the screen. All headings in Title Case. No em dashes, colons or semicolons in prose.
+Follow `references/digest-template.md`. Group papers under the config's theme headings, one entry per paper: APA7 reference, evidence type, one-sentence finding written in hedged language drawn from the abstract, one sentence on relevance to the config's stated interest, and a link (open-access URL where available, otherwise the DOI). Papers relegated for want of an abstract go under "Abstract Unavailable". Close with an "Also Surfaced, Not Selected" list of titles so the reader can audit the screen. All headings in Title Case. No em dashes, colons or semicolons in prose.
 
 ## Troubleshooting
 
 | Problem | Cause | Fix |
 |---------|-------|-----|
-| Every result is old | `sort_by` left at default | The agent must pass `sort_by: "date"` on every scan call |
+| Every result is old | `sort_by` left at default | The agent passes `sort_by: "date"` unless the group sets its own `sort_by` |
+| CrossRef results all fall on the last day of the window | `sort_by: date` makes CrossRef return the newest records matching any query word | Set `sort_by: relevance` on groups that search CrossRef; the date window still bounds the results |
+| Venue filter finds almost nothing | `venues` is applied after retrieval, so it only filters the records fetched | Put the publisher or journal name in the query, set `sort_by: relevance` and raise the group's `max_results` |
 | Same papers every week | `exclude_dois` not passed or state not updated | Check step 4 ran; check the sidecar lists DOIs |
 | Empty scan | `since` too recent for indexing lag | Databases index with a lag of days to weeks; widen with `since` or accept a quiet week |
 | Venue sweep returns nothing | Venue names do not match the source's journal string | Use short distinctive substrings ("Applied Psychology", not the full title) |

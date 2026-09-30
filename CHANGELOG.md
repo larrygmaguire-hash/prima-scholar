@@ -4,8 +4,21 @@ All notable changes to PRIMA Scholar are documented in this file.
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-09-30
+
+Plugin components only. Search and Library MCP servers unchanged.
+
+### Added
+
+- `literature-watch` per-group overrides: optional `sort_by`, `max_results` and `venues` on any topic group, and optional `sources`, `sort_by` and `max_results` on the venue sweep. Unset fields fall back to the settings, so existing configs behave as before.
+- `literature-watch` missing-abstract handling: the agent tries one `scholar_get_paper` lookup by DOI for any paper with an empty abstract, then applies the new `missing_abstract` setting (`relegate`, the default, `exclude` or `include`). Relegated papers are never selected or imported and are listed in a new "Abstract Unavailable" digest section. The sidecar gains `relegatedDois` and the run record gains `relegated`.
+- Config template example of a publisher sweep group (Frontiers via CrossRef with relevance sort and a venue filter).
+- Troubleshooting rows for CrossRef date-sorted results bunching on the last day of the window, and for post-retrieval venue filters that find almost nothing.
+
 ### Changed
 
+- `literature-watch` default for papers without an abstract moves from screening on title alone to `relegate`. Set `missing_abstract: include` to keep the earlier behaviour.
+- State update appends DOIs without re-sorting `seenDois`, so the oldest-dropped cap keeps working.
 - `literature-watch` config template: the default `digest_dir` is now `Documentation/Reports/Literature Watch`, a folder present in every AI Business OS layout. The previous default, `Research/Literature Watch`, existed in no layout. The 3.0.0 domain alternative is noted alongside it.
 
 ## [2.1.0] - 2026-09-02
