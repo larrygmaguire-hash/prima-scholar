@@ -1,9 +1,10 @@
 {
   "name": "prima-scholar",
-  "description": "PRIMA Scholar — research workspace with academic search, document library, and citation-aware writing for Claude Code",
+  "description": "PRIMA Scholar \u2014 research workspace with academic search, document library, and citation-aware writing for Claude Code",
   "version": "2.2.1",
   "author": {
-    "name": "PRIMA Contributors",
-    "email": "larry@humanperformance.ie"
+    "name": "Larry G. Maguire",
+    "email": "larry@genaiskills.io",
+    "url": "https://genaiskills.io"
   }
 }
