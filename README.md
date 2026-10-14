@@ -73,7 +73,7 @@ The repository is also laid out as a Claude Code plugin. `.claude-plugin/plugin.
 
 `--plugin-dir` loads the plugin for that session only, and nothing is copied into your workspace. The repository has no marketplace manifest (`.claude-plugin/marketplace.json`), so it cannot be added with `/plugin marketplace add` or installed with `/plugin install` on its own. Plugin commands and skills carry the plugin name as a prefix, for example `/prima-scholar:scholar`.
 
-On this route the servers take their settings from the environment you start Claude Code in. `.mcp.json` passes `PUBMED_API_KEY`, `SEMANTIC_SCHOLAR_KEY`, `CROSSREF_MAILTO`, and `RESEARCH_LIBRARY_PATH`. Set `RESEARCH_LIBRARY_PATH` (for example to `~/.research-library/library.db`) before you start Claude Code.
+On this route the servers take their settings from the environment you start Claude Code in. `.mcp.json` passes all six variables under [Configuration](#configuration): `PUBMED_API_KEY`, `SEMANTIC_SCHOLAR_KEY`, `CORE_API_KEY`, `OPENALEX_MAILTO`, `CROSSREF_MAILTO`, and `RESEARCH_LIBRARY_PATH`. Each is optional. A key or email you have not exported is passed as empty, and `RESEARCH_LIBRARY_PATH` falls back to `~/.research-library/library.db`, so the plugin starts with nothing set. To use a key, export it before you start Claude Code, for example `export CORE_API_KEY=your-key`.
 
 ### Claude Desktop (MCP Servers Only)
 
@@ -200,12 +200,12 @@ All environment variables are optional except `CORE_API_KEY` (required only if y
 
 | Variable | Purpose | How to Get |
 |----------|---------|------------|
-| `OPENALEX_MAILTO` | Sent to OpenAlex as `mailto` to join its polite pool. Falls back to `CROSSREF_MAILTO` only when `OPENALEX_MAILTO` is not set at all; an empty value, which `install.sh` writes by default, does not fall back. The server's own OpenAlex limit stays at 10 req/sec | Use your email address |
+| `OPENALEX_MAILTO` | Sent to OpenAlex as `mailto` to join its polite pool. Falls back to `CROSSREF_MAILTO` when `OPENALEX_MAILTO` is unset or empty. The server's own OpenAlex limit stays at 10 req/sec | Use your email address |
 | `CROSSREF_MAILTO` | Sent to CrossRef in the User-Agent header to join its polite pool. The server's own CrossRef limit stays at 50 req/sec | Use your email address |
 | `PUBMED_API_KEY` | Higher PubMed rate limit (3/sec to 10/sec) | https://www.ncbi.nlm.nih.gov/account/ |
 | `SEMANTIC_SCHOLAR_KEY` | Sent to Semantic Scholar as an API key. The server's own Semantic Scholar limit stays at 100 req/5 min | https://www.semanticscholar.org/product/api |
 | `CORE_API_KEY` | Required to search CORE (free) | https://core.ac.uk/services/api |
-| `RESEARCH_LIBRARY_PATH` | Custom database file location | Default: `~/.research-library/library.db` |
+| `RESEARCH_LIBRARY_PATH` | Custom database file location. Unset or empty means the default | Default: `~/.research-library/library.db` |
 
 API keys are stored in your local environment. They are never committed to code or transmitted beyond the API they authenticate with.
 

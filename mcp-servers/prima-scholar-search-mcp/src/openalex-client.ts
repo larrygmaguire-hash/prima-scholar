@@ -37,7 +37,12 @@ export class OpenAlexClient implements ScholarClient {
   private mailto: string | undefined;
 
   constructor() {
-    this.mailto = process.env.OPENALEX_MAILTO ?? process.env.CROSSREF_MAILTO;
+    // An empty OPENALEX_MAILTO (which install.sh writes by default) falls
+    // back to CROSSREF_MAILTO; an empty result leaves mailto unset.
+    this.mailto =
+      (process.env.OPENALEX_MAILTO ?? "").trim() ||
+      (process.env.CROSSREF_MAILTO ?? "").trim() ||
+      undefined;
   }
 
   private buildUrl(path: string, params: URLSearchParams): string {

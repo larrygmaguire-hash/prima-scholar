@@ -26,10 +26,13 @@ import { importPdf } from "./importers/pdf-importer.js";
 import { importDocx } from "./importers/docx-importer.js";
 import type { ImportResult } from "./types.js";
 
-// Resolve database path
+// Resolve database path. An empty or whitespace value falls back to the
+// default, because an empty string would open a temporary database that
+// is discarded when the server stops.
 const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
 const rawDbPath =
-  process.env.RESEARCH_LIBRARY_PATH ?? "~/.research-library/library.db";
+  (process.env.RESEARCH_LIBRARY_PATH ?? "").trim() ||
+  "~/.research-library/library.db";
 const dbPath = rawDbPath.startsWith("~")
   ? path.join(home, rawDbPath.slice(1))
   : rawDbPath;

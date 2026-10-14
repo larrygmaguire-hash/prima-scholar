@@ -87,7 +87,7 @@ Add to `~/.claude.json` or project `.mcp.json`:
 
 | Variable | Required | Purpose | How to Get |
 |----------|----------|---------|------------|
-| `OPENALEX_MAILTO` | No | Sent to OpenAlex as `mailto` to join its polite pool. Falls back to `CROSSREF_MAILTO` only when `OPENALEX_MAILTO` is not set at all; an empty value, which `install.sh` writes by default, does not fall back. The server's own OpenAlex limit stays at 10 req/sec | Use your email address |
+| `OPENALEX_MAILTO` | No | Sent to OpenAlex as `mailto` to join its polite pool. Falls back to `CROSSREF_MAILTO` when `OPENALEX_MAILTO` is unset or empty. The server's own OpenAlex limit stays at 10 req/sec | Use your email address |
 | `CROSSREF_MAILTO` | No | Sent to CrossRef in the User-Agent header to join its polite pool. The server's own CrossRef limit stays at 50 req/sec | Use your email address |
 | `PUBMED_API_KEY` | No | Higher rate limits (10 req/sec vs 3) | https://www.ncbi.nlm.nih.gov/account/ |
 | `SEMANTIC_SCHOLAR_KEY` | No | Sent to Semantic Scholar as an API key. The server's own Semantic Scholar limit stays at 100 req/5 min | https://www.semanticscholar.org/product/api |

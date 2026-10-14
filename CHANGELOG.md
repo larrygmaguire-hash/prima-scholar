@@ -6,7 +6,7 @@ All notable changes to PRIMA Scholar are documented in this file.
 
 ## [2.2.1] - 2026-10-14
 
-Bug fixes and documentation corrections. Search and Library MCP servers change only in tool descriptions and version strings; no tool behaviour changes.
+Bug fixes and documentation corrections. Search and Library MCP servers change in tool descriptions, version strings and two start-up fallbacks (empty `RESEARCH_LIBRARY_PATH` and empty `OPENALEX_MAILTO`); no tool behaviour changes.
 
 ### Fixed
 
@@ -23,6 +23,10 @@ Bug fixes and documentation corrections. Search and Library MCP servers change o
 - `managing-research-library` skill: import confirmation, browse sorting, stats and DOI enrichment steps now match the tools (no citation count sort, no journal field, enrichment written back with `library_update`).
 - `/cite` example showed a string document ID; library IDs are integers.
 - `/scholar` and the `researching-topics` description listed four databases; both now list all ten.
+- Plugin route (`.mcp.json`): a variable not exported before `claude --plugin-dir` reached the servers as the literal text `${VAR}`, so the library server created a database file named `${RESEARCH_LIBRARY_PATH}` in the directory Claude Code was started in, and the search server held literal placeholder text as its keys and contact emails. Every variable now uses the `${VAR:-default}` form (empty for keys and emails, `~/.research-library/library.db` for the library path), and `OPENALEX_MAILTO` and `CORE_API_KEY`, which `.mcp.json` did not pass, are added.
+- Library MCP server: an empty `RESEARCH_LIBRARY_PATH` opened a temporary database that was discarded when the server stopped. Empty or whitespace now falls back to the default path.
+- OpenAlex client: `OPENALEX_MAILTO` falls back to `CROSSREF_MAILTO` when it is empty as well as when it is unset. `install.sh` writes an empty `OPENALEX_MAILTO` by default, so the fallback never applied on the installer route.
+- `literature-watch-agent` step 5 said `scholar_get_paper` routes a DOI to CrossRef; it resolves a DOI through Semantic Scholar and falls back to CrossRef.
 
 ### Changed
 
