@@ -60,7 +60,7 @@ export const TOOLS = [
             ],
           },
           description:
-            "Which databases to search. Default: determined by wizard or all available. " +
+            "Which databases to search. Default: all ten (CORE is skipped when CORE_API_KEY is not set). " +
             "Specify a subset to narrow scope.",
         },
         open_access_only: {
@@ -129,9 +129,12 @@ export const TOOLS = [
   {
     name: "scholar_get_paper",
     description:
-      "Get full metadata for a single paper by its identifier. Accepts DOIs, PubMed IDs (PMID:xxx), " +
-      "arXiv IDs (ARXIV:xxx), Semantic Scholar IDs, OpenAlex IDs (W-prefix or URL), CORE IDs, " +
-      "Europe PMC IDs, ERIC IDs, and DBLP keys. The server automatically routes to the correct backend.",
+      "Get full metadata for a single paper by its identifier. Routing by format: PMID:xxx to PubMed; " +
+      "ARXIV:xxx to arXiv; OpenAlex IDs (W-prefix or https://openalex.org/ URL) to OpenAlex; " +
+      "ERIC IDs (EJ/ED number) to ERIC; PMC IDs to Europe PMC; DOIs (plain or DOI:-prefixed) to " +
+      "Semantic Scholar, falling back to CrossRef. Any other identifier, including Semantic Scholar " +
+      "paper IDs, is sent to Semantic Scholar. There is no route to CORE or DBLP, so CORE IDs and " +
+      "DBLP keys are not supported; use the paper's DOI instead.",
     inputSchema: {
       type: "object",
       properties: {
@@ -139,8 +142,8 @@ export const TOOLS = [
           type: "string",
           description:
             "Paper identifier. Formats: DOI (10.xxx/xxx), PMID:38123456, ARXIV:2301.12345, " +
-            "Semantic Scholar ID, OpenAlex ID (W1234567890), CORE ID, ERIC ID (EJ/ED number), " +
-            "DBLP key. Plain DOIs are also accepted without a prefix.",
+            "OpenAlex ID (W1234567890), ERIC ID (EJ/ED number), Europe PMC ID (PMC1234567), " +
+            "Semantic Scholar paper ID. Plain DOIs are also accepted without a prefix.",
         },
         citation_style: {
           type: "string",
@@ -157,7 +160,7 @@ export const TOOLS = [
     description:
       "Get papers that cite or are referenced by a given paper. Useful for forward citation " +
       "tracking (finding newer work that builds on a known paper) and backward citation tracking " +
-      "(finding the foundational work a paper builds on). Uses Semantic Scholar and OpenAlex citation graphs.",
+      "(finding the foundational work a paper builds on). Uses the Semantic Scholar citation graph only.",
     inputSchema: {
       type: "object",
       properties: {
@@ -184,17 +187,21 @@ export const TOOLS = [
   {
     name: "scholar_full_text",
     description:
-      "Retrieve the full text of an open access paper where available. Queries CORE and Europe PMC " +
-      "for full-text content. Returns the text content or a direct download URL. Only works for papers " +
-      "that are flagged as fullTextAvailable in search results.",
+      "Retrieve the full text, or a download link, for an open access paper. Tried in order: " +
+      "(1) CORE, only when CORE_API_KEY is set: the ID is looked up as a CORE work ID and the full " +
+      "text is returned if CORE holds it. This is the only route that returns the text itself. " +
+      "(2) Europe PMC, for PMC IDs, PMID:xxx or DOIs: returns a downloadUrl when Europe PMC lists the " +
+      "paper as open access with full text. (3) arXiv IDs (ARXIV:xxx or 2301.12345): returns the arXiv " +
+      "PDF URL, built from the ID without checking the paper exists. (4) bioRxiv/medRxiv DOIs " +
+      "(10.1101/...): returns the doi.org link. Otherwise returns source 'none' with a message.",
     inputSchema: {
       type: "object",
       properties: {
         id: {
           type: "string",
           description:
-            "Paper identifier — CORE ID, PMC ID, DOI, or any ID from a search result " +
-            "where fullTextAvailable was true.",
+            "Paper identifier: CORE work ID (a CORE: prefix is accepted), PMC ID, PMID:xxx, DOI, " +
+            "or ARXIV:xxx.",
         },
       },
       required: ["id"],

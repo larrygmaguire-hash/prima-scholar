@@ -4,6 +4,33 @@ All notable changes to PRIMA Scholar are documented in this file.
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-10-14
+
+Bug fixes and documentation corrections. Search and Library MCP servers change only in tool descriptions and version strings; no tool behaviour changes.
+
+### Fixed
+
+- `install.sh` no longer drops API keys when it re-registers a server. Re-registration rebuilt the `prima-scholar-search` `env` block from `CROSSREF_MAILTO` and `OPENALEX_MAILTO` only, deleting `PUBMED_API_KEY`, `SEMANTIC_SCHOLAR_KEY`, `CORE_API_KEY` and any other variable, and the library entry kept only `RESEARCH_LIBRARY_PATH`. Both now keep every existing variable and add only missing defaults.
+- `install.sh` "already registered" check looked for an `args` entry that the installer itself never writes, so every re-run re-registered both servers. It now also matches on `command`, and leaves a correct entry untouched.
+- `install.sh` passes paths to Python as arguments instead of interpolating them into the Python source, so a quote in a workspace path cannot break the Python code.
+- `scholar_citations` tool description no longer claims OpenAlex citation data; the tool uses Semantic Scholar only.
+- `scholar_full_text` tool description now states the four routes in the order the code tries them, that only CORE returns the text itself, and that the other routes return a download URL.
+- `scholar_get_paper` tool description no longer lists CORE IDs and DBLP keys, which have no route, and states the DOI fallback from Semantic Scholar to CrossRef.
+- `scholar_search` `sources` description now gives the real default (all ten, CORE skipped without a key) instead of "determined by wizard".
+- Library MCP server reported version 1.0.0 at runtime; the CrossRef User-Agent carried 1.0.0. Both now carry the release version.
+- `/library collections` browse step called `library_search` with a collection filter that does not exist; it now calls `library_list` with `collection`. The `tags` action filters with `library_list` `tag`, and `stats` no longer offers recent imports, which `library_stats` does not return.
+- `managing-research-library` `import-formats.md` described DOI, year, abstract, journal, YAML front matter and DOCX property extraction that the importers do not do. It now lists what each importer extracts and how each stored field is set.
+- `managing-research-library` skill: import confirmation, browse sorting, stats and DOI enrichment steps now match the tools (no citation count sort, no journal field, enrichment written back with `library_update`).
+- `/cite` example showed a string document ID; library IDs are integers.
+- `/scholar` and the `researching-topics` description listed four databases; both now list all ten.
+
+### Changed
+
+- README: clone command added to the install steps; the Claude Code plugin route (`.claude-plugin/plugin.json`, `.mcp.json`, `claude --plugin-dir`) documented; all three agents listed; uninstall steps added that reverse `install.sh`; `python3`, `bash` and `git` added to the requirements, with the installer's OS support.
+- README and search server README: rate limit and key descriptions match the built-in limiters (only the PubMed key raises a limit); citation style default stated as all six styles unless `citation_style` is set; full-text and paper lookup descriptions match the code.
+- `install.sh` header lists the `.gitignore` step and the `python3` requirement.
+- Version 2.2.1 across `plugin.json`, both MCP `package.json` and `package-lock.json` files, and both servers' runtime version strings.
+
 ## [2.2.0] - 2026-09-30
 
 Plugin components only. Search and Library MCP servers unchanged.

@@ -1,6 +1,6 @@
 ![PRIMA Scholar](assets/prima-scholar-brand-image.png)
 
-# PRIMA Scholar v2.2.0
+# PRIMA Scholar v2.2.1
 
 A research workspace plugin for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [Claude Desktop](https://claude.ai/download). Search 10 academic databases, manage a local document library, and write with properly formatted citations.
 
@@ -9,12 +9,12 @@ A research workspace plugin for [Claude Code](https://docs.anthropic.com/en/docs
 - **Academic Search** -- Search PubMed, arXiv, Semantic Scholar, CrossRef, OpenAlex, CORE, Europe PMC, ERIC, bioRxiv/medRxiv, and DBLP from a single interface
 - **Search Wizard** -- Analyses your query, detects your discipline, and recommends the best databases to search before you run a query
 - **Open Access First** -- Every result shows whether it is open access or gated. OA papers are prioritised in results. Filter to OA-only with a single parameter
-- **Full-Text Retrieval** -- Fetch the full text of open access papers directly from CORE, Europe PMC, arXiv, and bioRxiv
+- **Full-Text Retrieval** -- Fetch the full text of open access papers from CORE (with a CORE API key), or a download link from Europe PMC, arXiv, and bioRxiv/medRxiv
 - **Document Library** -- Import PDFs, Word documents, and text files into a local SQLite database with full-text search, collections, and tagging
 - **Multi-Style Citations** -- Generate citations in APA7, Harvard, Chicago, Vancouver, IEEE, and MLA formats
 - **Citation Tracking** -- Follow citation chains forward (who cited this paper?) and backward (what does it cite?)
 - **Citation-Aware Writing** -- Draft prose with inline citations drawn from your library and search results
-- **Research Agent** -- Autonomous multi-step research: decomposes questions, searches databases, follows citation chains, produces cited synthesis
+- **Research Agents** -- Autonomous multi-step research with cited synthesis, structured form completion from your library and the databases, and a recurring literature watch (see [Agents](#agents-claude-code))
 
 ## Databases
 
@@ -40,6 +40,9 @@ To install, give your Claude Code instance this repository link and ask it to in
 > **Instructions for Claude Code (read and follow these steps):**
 >
 > 1. **Clone to `~/Developer/prima-scholar`** -- not into the current workspace. Cloning inside the workspace creates a nested git repository, which causes git tracking problems and embedded repo warnings on commit. The clone must go to a separate location.
+>    ```bash
+>    git clone https://github.com/larrygmaguire-hash/prima-scholar.git ~/Developer/prima-scholar
+>    ```
 >
 > 2. **Build both MCP servers:**
 >    ```bash
@@ -54,7 +57,23 @@ To install, give your Claude Code instance this repository link and ask it to in
 >
 > 4. **Restart Claude Code** to load the new commands and MCP servers.
 
-The install script copies commands, skills, agents, and MCP server code into the workspace's `.claude/` directory, registers the MCP servers in `~/.claude.json`, and adds the MCP server directories to the workspace's `.gitignore`.
+The install script copies commands, skills, agents, and MCP server code into the workspace's `.claude/` directory, registers the MCP servers in `~/.claude.json`, and adds the MCP server directories to the workspace's `.gitignore`. It needs `bash` and `python3` (see [Requirements](#requirements)). The workspace must already have a `.claude/` folder. If `~/.claude.json` does not exist, the script skips registration and you add the servers yourself.
+
+To set API keys on this route, add them to the `env` block of the `prima-scholar-search` entry in `~/.claude.json` (variable names under [Configuration](#configuration)), then restart Claude Code.
+
+### Claude Code Plugin (Load for One Session)
+
+The repository is also laid out as a Claude Code plugin. `.claude-plugin/plugin.json` is the plugin manifest, and `.mcp.json` starts both MCP servers from the plugin folder (`${CLAUDE_PLUGIN_ROOT}/mcp-servers/.../build/index.js`). Claude Code reads the commands, skills, and agents from the `commands/`, `skills/`, and `agents/` folders.
+
+1. Clone the repository and build both MCP servers (steps 1 and 2 above). The servers' `build/` folders are not in the repository, so the plugin cannot start them until you build.
+2. Start Claude Code with the plugin folder:
+   ```bash
+   claude --plugin-dir ~/Developer/prima-scholar
+   ```
+
+`--plugin-dir` loads the plugin for that session only, and nothing is copied into your workspace. The repository has no marketplace manifest (`.claude-plugin/marketplace.json`), so it cannot be added with `/plugin marketplace add` or installed with `/plugin install` on its own. Plugin commands and skills carry the plugin name as a prefix, for example `/prima-scholar:scholar`.
+
+On this route the servers take their settings from the environment you start Claude Code in. `.mcp.json` passes `PUBMED_API_KEY`, `SEMANTIC_SCHOLAR_KEY`, `CROSSREF_MAILTO`, and `RESEARCH_LIBRARY_PATH`. Set `RESEARCH_LIBRARY_PATH` (for example to `~/.research-library/library.db`) before you start Claude Code.
 
 ### Claude Desktop (MCP Servers Only)
 
@@ -115,7 +134,7 @@ To update, ask your Claude Code instance to update PRIMA Scholar. It will pull t
 
 The installer **overwrites** all PRIMA Scholar commands, skills, and agents on every run. This ensures you always have the latest versions. If you have modified any of the commands, skills, or agents that shipped with PRIMA Scholar, **your changes will be replaced** when you update.
 
-MCP server code is also overwritten on each install. Environment variables and API keys in `~/.claude.json` are preserved.
+MCP server code is also overwritten on each install. Environment variables and API keys in `~/.claude.json` are preserved: when the installer re-registers a server, it keeps every variable already in that server's `env` block and adds only the defaults that are missing.
 
 ### Keeping your customisations
 
@@ -138,16 +157,53 @@ If you want to modify a PRIMA Scholar skill, agent, or command and keep your cha
 >
 > Edit the copy, not the original. The original will be overwritten on the next update.
 
+## Uninstalling
+
+These steps reverse what `install.sh` does, for a workspace at `/path/to/workspace`. Run them from the workspace folder.
+
+1. **Remove the commands, skills, and agents** the installer copied:
+   ```bash
+   cd /path/to/workspace
+   rm .claude/commands/cite.md .claude/commands/library.md .claude/commands/literature-watch.md .claude/commands/scholar.md
+   rm -r .claude/skills/literature-watch .claude/skills/managing-research-library .claude/skills/researching-topics .claude/skills/writing-with-citations
+   rm .claude/agents/form-completion-agent.md .claude/agents/literature-watch-agent.md .claude/agents/research-agent.md
+   ```
+   If you made renamed copies (for example `my-researching-topics`), they are yours and are not part of this list.
+
+2. **Remove the MCP server copies:**
+   ```bash
+   rm -r .claude/mcp-servers/prima-scholar-search .claude/mcp-servers/prima-scholar-library
+   ```
+
+3. **Remove the two server registrations** from `~/.claude.json`. The installer adds them at user scope, so:
+   ```bash
+   claude mcp remove prima-scholar-search -s user
+   claude mcp remove prima-scholar-library -s user
+   ```
+   This also removes any API keys stored in those entries.
+
+4. **Remove the two `.gitignore` lines** the installer added to the workspace `.gitignore`:
+   ```
+   .claude/mcp-servers/prima-scholar-search/
+   .claude/mcp-servers/prima-scholar-library/
+   ```
+
+5. **Restart Claude Code.**
+
+The installer does not create your research library or the literature watch files, so uninstalling leaves them in place. The library is the SQLite file at `RESEARCH_LIBRARY_PATH` (default `~/.research-library/library.db`), plus any `-wal` and `-shm` files beside it; deleting it deletes every document record, tag, and collection. The literature watch config and state are in `.claude/literature-watch/` in the workspace, and digests are in the folder set by `digest_dir`. Delete these only if you no longer want them. You can also delete the clone at `~/Developer/prima-scholar`.
+
+If you used the plugin route, stop starting Claude Code with `--plugin-dir`; nothing was copied into the workspace.
+
 ## Configuration
 
 All environment variables are optional except `CORE_API_KEY` (required only if you want to search CORE). The plugin works with zero configuration across the other 9 databases.
 
 | Variable | Purpose | How to Get |
 |----------|---------|------------|
-| `OPENALEX_MAILTO` | Polite pool for OpenAlex (higher rate limits) | Use your email address |
-| `CROSSREF_MAILTO` | Polite pool for CrossRef (higher rate limits) | Use your email address |
+| `OPENALEX_MAILTO` | Sent to OpenAlex as `mailto` to join its polite pool. Falls back to `CROSSREF_MAILTO` only when `OPENALEX_MAILTO` is not set at all; an empty value, which `install.sh` writes by default, does not fall back. The server's own OpenAlex limit stays at 10 req/sec | Use your email address |
+| `CROSSREF_MAILTO` | Sent to CrossRef in the User-Agent header to join its polite pool. The server's own CrossRef limit stays at 50 req/sec | Use your email address |
 | `PUBMED_API_KEY` | Higher PubMed rate limit (3/sec to 10/sec) | https://www.ncbi.nlm.nih.gov/account/ |
-| `SEMANTIC_SCHOLAR_KEY` | Higher Semantic Scholar rate limit | https://www.semanticscholar.org/product/api |
+| `SEMANTIC_SCHOLAR_KEY` | Sent to Semantic Scholar as an API key. The server's own Semantic Scholar limit stays at 100 req/5 min | https://www.semanticscholar.org/product/api |
 | `CORE_API_KEY` | Required to search CORE (free) | https://core.ac.uk/services/api |
 | `RESEARCH_LIBRARY_PATH` | Custom database file location | Default: `~/.research-library/library.db` |
 
@@ -166,7 +222,7 @@ PRIMA Scholar supports multiple academic citation formats. Specify your preferre
 | **IEEE** | C. S. Dweck, *Mindset: The New Psychology of Success*. Random House, 2006. |
 | **MLA** | Dweck, Carol S. *Mindset: The New Psychology of Success*. Random House, 2006. |
 
-Default style is APA7. Set your preference with the `citation_style` parameter on any search or citation tool.
+`scholar_search` and `scholar_get_paper` return all six styles unless you set `citation_style` to one of them. `/cite` returns APA7, and the skills and agents write in APA7 unless you ask for another style.
 
 ## Commands (Claude Code)
 
@@ -174,7 +230,7 @@ Default style is APA7. Set your preference with the `citation_style` parameter o
 |---------|-------------|
 | `/scholar [topic]` | Start a research session |
 | `/cite [DOI or title]` | Quick citation lookup |
-| `/library [action]` | Library management: import, search, collections, stats |
+| `/library [action]` | Library management: import, search, collections, stats, tags |
 | `/literature-watch [since YYYY-MM-DD] [--dry-run]` | Recurring recency scan of your standing topics, written as a dated digest |
 
 ## Skills (Claude Code)
@@ -186,6 +242,16 @@ Default style is APA7. Set your preference with the `citation_style` parameter o
 | `writing-with-citations` | "write with citations", "draft with references", "write in Harvard style" |
 | `literature-watch` | "run the literature watch", "what is new in the literature on", "weekly paper scan" |
 
+## Agents (Claude Code)
+
+| Agent | What It Does | Model |
+|-------|--------------|-------|
+| `research-agent` | Autonomous multi-step research. Breaks a question into sub-questions, searches the databases and your library, follows citation chains, writes a synthesis with APA7 citations and confidence tags to disk, and returns the file path with a short summary. It also has web search and web fetch | sonnet |
+| `form-completion-agent` | Takes a structured template, questionnaire, or form (grant applications, compliance forms, literature review matrices) and fills each field from your library and the databases, with citations and confidence tags. Fields it cannot support are marked for manual input | sonnet |
+| `literature-watch-agent` | Runs one literature watch scan for the `literature-watch` skill: searches each topic group for papers published since the last run, screens them, writes the dated digest and a JSON file of DOIs, and imports the selected papers. Not for one-off research | opus |
+
+The model is the one set in each agent's front matter.
+
 ## MCP Tools
 
 ### Search Server (5 tools)
@@ -194,9 +260,9 @@ Default style is APA7. Set your preference with the `citation_style` parameter o
 |------|-------------|
 | `scholar_wizard` | Analyse a query, detect discipline, generate refinement questions before searching |
 | `scholar_search` | Unified search across up to 10 databases with OA prioritisation, deduplication, date-window recency scanning, venue filtering and DOI exclusion |
-| `scholar_get_paper` | Get paper by any identifier (DOI, PMID, arXiv ID, OpenAlex ID, ERIC ID, etc.) |
+| `scholar_get_paper` | Get a paper by DOI, PMID, arXiv ID, OpenAlex ID, ERIC ID, Europe PMC (PMC) ID, or Semantic Scholar ID. CORE IDs and DBLP keys are not supported; use the DOI |
 | `scholar_citations` | Forward and backward citation tracking via Semantic Scholar |
-| `scholar_full_text` | Retrieve full text of open access papers from CORE, Europe PMC, arXiv, bioRxiv |
+| `scholar_full_text` | Full text of open access papers from CORE (needs `CORE_API_KEY`); a download link from Europe PMC, arXiv, or bioRxiv/medRxiv |
 
 ### Library Server (12 tools)
 
@@ -251,21 +317,27 @@ Per-source rate limiting is built in. All limits respect API terms of service.
 
 | Source | Limit (no key) | Limit (with key) |
 |--------|---------------|-------------------|
-| OpenAlex | 10 req/sec | N/A (polite pool) |
+| OpenAlex | 10 req/sec | N/A (no key) |
 | PubMed | 3 req/sec | 10 req/sec |
 | arXiv | 1 req/3 sec | N/A |
-| Semantic Scholar | 100 req/5 min | Higher |
-| CrossRef | 50 req/sec | N/A (polite pool) |
+| Semantic Scholar | 100 req/5 min | 100 req/5 min |
+| CrossRef | 50 req/sec | N/A (no key) |
 | CORE | 10 req/sec | N/A |
 | Europe PMC | 10 req/sec | N/A |
 | ERIC | 10 req/sec | N/A |
 | bioRxiv/medRxiv | 5 req/sec | N/A |
 | DBLP | 5 req/sec | N/A |
 
+These limits are fixed in the server. Setting an API key raises the built-in limit for PubMed only; the contact emails for OpenAlex and CrossRef do not change the built-in limits.
+
 ## Requirements
 
 - Node.js 18+
 - npm
+- `git`, to clone and update the repository
+- For `install.sh`: `bash` and `python3` (the installer uses Python to read and write `~/.claude.json`)
+
+`install.sh` and the `start.sh` wrappers it writes are bash scripts, so the installer route runs on macOS and Linux. It does not run on Windows outside a bash environment. The Claude Desktop route runs each server with `node` directly and does not use the installer.
 
 ## Part of the PRIMA Ecosystem
 

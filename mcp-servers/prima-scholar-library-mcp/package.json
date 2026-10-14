@@ -1,6 +1,6 @@
 {
   "name": "prima-scholar-library-mcp",
-  "version": "2.1.0",
+  "version": "2.2.1",
   "description": "MCP server for a local research library with SQLite FTS5 full-text search. Imports PDFs and Word documents, tags, organises, and searches across your private corpus.",
   "type": "module",
   "main": "build/index.js",

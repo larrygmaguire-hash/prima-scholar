@@ -7,7 +7,7 @@
  * and reference materials.
  *
  * @author PRIMA Contributors
- * @version 1.0.0
+ * @version 2.2.1
  */
 
 import path from "path";
@@ -41,7 +41,7 @@ const db = new LibraryDatabase(dbPath);
 const server = new Server(
   {
     name: "prima-scholar-library-mcp",
-    version: "1.0.0",
+    version: "2.2.1",
   },
   {
     capabilities: {

@@ -26,7 +26,7 @@ Available actions:
 2. `/library search [query]` — Search across all documents
 3. `/library collections` — View and manage collections
 4. `/library stats` — Library statistics
-5. `/library tags` — View all tags
+5. `/library tags` — View the most used tags
 
 Wait for the user to choose an action.
 
@@ -68,7 +68,7 @@ After displaying, offer two options:
 - "Browse a collection — tell me which one"
 - "Create a new collection — give me a name and description"
 
-If the user wants to browse, call `library_search` filtered by that collection. If the user wants to create, call `library_create_collection` with the provided name and description.
+If the user wants to browse, call `library_list` with `collection` set to the collection name (results come newest added first, 20 at a time; use `max_results` and `offset` to page). If the user wants to create, call `library_create_collection` with the provided name and description.
 
 ## Action: stats
 
@@ -76,13 +76,13 @@ Call `library_stats`.
 
 Present a formatted summary including:
 - Total documents in library
-- Documents by type (PDF, article, etc.)
+- Documents by type (`pdf`, `docx`, `markdown`, `text`, and `reference` for records added from search results)
+- Documents by year
 - Top tags with counts
 - Number of collections
-- Recent imports (if available)
 
 ## Action: tags
 
 Call `library_stats` and extract the `topTags` data.
 
-Present all tags with their document counts, sorted by frequency. Offer to filter the library by a specific tag if the user wants to explore.
+Present the tags with their document counts, sorted by frequency. `topTags` holds the 20 most used tags, so say so if the list has 20 entries. Offer to filter the library by a specific tag if the user wants to explore, by calling `library_list` with `tag` set to that tag name.

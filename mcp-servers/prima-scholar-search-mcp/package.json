@@ -1,6 +1,6 @@
 {
   "name": "prima-scholar-search-mcp",
-  "version": "2.1.0",
+  "version": "2.2.1",
   "description": "MCP server for academic literature search across 10 databases — PubMed, arXiv, Semantic Scholar, CrossRef, OpenAlex, Europe PMC, DBLP, ERIC, bioRxiv, CORE. Search wizard with discipline detection and open-access filtering.",
   "type": "module",
   "main": "build/index.js",

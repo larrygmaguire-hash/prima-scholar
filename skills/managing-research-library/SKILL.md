@@ -29,8 +29,8 @@ description: Import documents, organise collections, search and manage the local
 - Accept file path or DOI from user
 - Detect file type (PDF, DOCX, TXT, MD)
 - Call `library_import` with the file path
-- If DOI is available, enrich metadata via `scholar_get_paper`
-- Confirm import with extracted metadata: title, authors, year, type
+- If a DOI is available, enrich metadata via `scholar_get_paper`, then write the fields back with `library_update` (see `references/import-formats.md`)
+- Confirm import with the returned ID, title, file type and extracted text length (the importers do not extract authors or year; pass them to `library_import` when known)
 - Suggest tagging or collection assignment
 
 ### Import from Search
@@ -48,9 +48,9 @@ description: Import documents, organise collections, search and manage the local
 
 ### Browse
 
-- Call `library_list` with optional filters: collection, tag, year, document type
+- Call `library_list` with optional filters: collection, tag, year, file type
 - Present results in a table
-- Offer sorting by date added, year, title, or citation count
+- `library_list` returns documents newest added first; re-order the presented table by year or title if the user asks (there is no citation count field)
 
 ### Organise
 
@@ -79,9 +79,9 @@ description: Import documents, organise collections, search and manage the local
 ### Stats
 
 - Call `library_stats`
-- Present summary: total documents, documents by type, documents by year, top tags, collection sizes
+- Present summary: total documents, documents by type, documents by year, top tags, number of collections (call `library_list_collections` for the number of documents in each)
 
-2. **Auto-enrich metadata** when DOI is available. Call `scholar_get_paper` to fill in authors, year, journal, and generate APA7 citation string.
+2. **Auto-enrich metadata** when a DOI is available. Call `scholar_get_paper`, then `library_update` to fill in title, authors, year, DOI and abstract. `library_update` cannot set the journal or formatted citations (see `references/import-formats.md`).
 
 3. **Present results clearly** with document IDs visible for follow-up actions.
 
@@ -123,7 +123,7 @@ Suggested tags: [auto-suggested based on content]
 
 **User:** "Import this paper" [provides file path]
 - Call `library_import` with the path
-- If PDF, extract metadata
+- Confirm the detected title; pass authors, year and DOI if the user has them
 - Confirm import, suggest tags
 
 **User:** "Search my library for attachment theory"

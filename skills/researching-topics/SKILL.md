@@ -1,6 +1,6 @@
 ---
 name: researching-topics
-description: Search academic databases (PubMed, arXiv, Semantic Scholar, CrossRef), synthesise findings with APA7 citations and confidence tags. Use when asked to "research [topic]", "find papers on", "literature review", "what does the research say about", "search for studies on", or "academic search".
+description: Search ten academic databases (PubMed, arXiv, Semantic Scholar, CrossRef, OpenAlex, CORE, Europe PMC, ERIC, bioRxiv/medRxiv, DBLP), synthesise findings with APA7 citations and confidence tags. Use when asked to "research [topic]", "find papers on", "literature review", "what does the research say about", "search for studies on", or "academic search".
 ---
 
 # Researching Topics

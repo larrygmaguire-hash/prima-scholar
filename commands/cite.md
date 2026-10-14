@@ -47,4 +47,4 @@ Example output:
 
 > Deci, E. L., & Ryan, R. M. (2000). The "what" and "why" of goal pursuits: Human needs and the self-determination of behaviour. *Psychological Inquiry*, *11*(4), 227–268. https://doi.org/10.1207/S15327965PLI1104_01
 >
-> *Already in your library (ID: doc_abc123)*
+> *Already in your library (ID: 42)*

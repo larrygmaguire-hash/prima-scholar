@@ -25,7 +25,7 @@ export class CrossRefClient implements ScholarClient {
       Accept: "application/json",
     };
     if (this.mailto) {
-      headers["User-Agent"] = `prima-scholar-search-mcp/1.0.0 (mailto:${this.mailto})`;
+      headers["User-Agent"] = `prima-scholar-search-mcp/2.2.1 (mailto:${this.mailto})`;
     }
     return headers;
   }

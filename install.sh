@@ -10,8 +10,11 @@
 #   2. Copies skills to .claude/skills/
 #   3. Copies agents to .claude/agents/
 #   4. Copies MCP server code to .claude/mcp-servers/ with start.sh wrappers
-#   5. Registers MCP servers in ~/.claude.json pointing to workspace copies
+#   5. Registers MCP servers in ~/.claude.json pointing to workspace copies,
+#      keeping any env variables (API keys, contact emails) already set there
+#   6. Adds the two MCP server directories to the workspace .gitignore
 #
+# Requires bash and python3 (python3 reads and writes ~/.claude.json).
 # MCP servers must already be built (npm run build in each server directory).
 
 set -euo pipefail
@@ -172,87 +175,55 @@ if [ ! -f "$CLAUDE_JSON" ]; then
     echo "  WARNING: ~/.claude.json not found — skipping MCP registration"
     echo "  Add MCP servers manually per the README"
 else
-    # Register search server
-    if python3 -c "
-import json, sys
-with open('$CLAUDE_JSON') as f:
-    d = json.load(f)
-servers = d.get('mcpServers', {})
-if 'prima-scholar-search' in servers:
-    # Check if already pointing to workspace copy
-    existing = servers['prima-scholar-search'].get('command', '')
-    existing_args = servers['prima-scholar-search'].get('args', [])
-    if existing_args and '$SEARCH_DEST' in existing_args[0]:
-        sys.exit(0)  # already correct
-    sys.exit(1)  # exists but points elsewhere
-sys.exit(1)  # not registered
-" 2>/dev/null; then
-        echo "  MCP: prima-scholar-search — already registered (correct path)"
-    else
-        if [ -f "$SEARCH_DEST/start.sh" ]; then
-            echo "  MCP: prima-scholar-search — registering..."
-            python3 -c "
-import json
-with open('$CLAUDE_JSON') as f:
-    d = json.load(f)
-d.setdefault('mcpServers', {})
-# Preserve existing env vars if re-registering
-existing_env = d['mcpServers'].get('prima-scholar-search', {}).get('env', {})
-d['mcpServers']['prima-scholar-search'] = {
-    'type': 'stdio',
-    'command': '$SEARCH_DEST/start.sh',
-    'env': {
-        'CROSSREF_MAILTO': existing_env.get('CROSSREF_MAILTO', ''),
-        'OPENALEX_MAILTO': existing_env.get('OPENALEX_MAILTO', '')
-    }
-}
-with open('$CLAUDE_JSON', 'w') as f:
-    json.dump(d, f, indent=2)
-print('    registered → $SEARCH_DEST/start.sh')
-"
-        else
-            echo "  MCP: prima-scholar-search — not installed, skipping registration"
+    # Register each server. An entry that already points at the workspace copy
+    # is left alone. Otherwise the entry is rewritten to point at start.sh,
+    # keeping every env variable already set (API keys, contact emails, library
+    # path) and adding only the defaults that are missing. Paths are passed as
+    # arguments, not interpolated into the Python source.
+    register_server() {
+        local name="$1" dest="$2" defaults="$3"
+        if [ ! -f "$dest/start.sh" ]; then
+            echo "  MCP: $name — not installed, skipping registration"
+            return 0
         fi
-    fi
+        python3 - "$CLAUDE_JSON" "$name" "$dest" "$defaults" << 'PYEOF'
+import json
+import sys
 
-    # Register library server
-    if python3 -c "
-import json, sys
-with open('$CLAUDE_JSON') as f:
+config_path, name, dest, defaults = sys.argv[1], sys.argv[2], sys.argv[3], json.loads(sys.argv[4])
+command = dest + "/start.sh"
+
+with open(config_path) as f:
     d = json.load(f)
-servers = d.get('mcpServers', {})
-if 'prima-scholar-library' in servers:
-    existing_args = servers['prima-scholar-library'].get('args', [])
-    if existing_args and '$LIBRARY_DEST' in existing_args[0]:
+
+servers = d.setdefault("mcpServers", {})
+existing = servers.get(name)
+if isinstance(existing, dict):
+    args = existing.get("args") or []
+    if existing.get("command") == command or (args and dest in str(args[0])):
+        print(f"  MCP: {name} — already registered (correct path)")
         sys.exit(0)
-    sys.exit(1)
-sys.exit(1)
-" 2>/dev/null; then
-        echo "  MCP: prima-scholar-library — already registered (correct path)"
-    else
-        if [ -f "$LIBRARY_DEST/start.sh" ]; then
-            echo "  MCP: prima-scholar-library — registering..."
-            python3 -c "
-import json
-with open('$CLAUDE_JSON') as f:
-    d = json.load(f)
-d.setdefault('mcpServers', {})
-existing_env = d['mcpServers'].get('prima-scholar-library', {}).get('env', {})
-d['mcpServers']['prima-scholar-library'] = {
-    'type': 'stdio',
-    'command': '$LIBRARY_DEST/start.sh',
-    'env': {
-        'RESEARCH_LIBRARY_PATH': existing_env.get('RESEARCH_LIBRARY_PATH', '~/.research-library/library.db')
-    }
-}
-with open('$CLAUDE_JSON', 'w') as f:
+
+entry = dict(existing) if isinstance(existing, dict) else {}
+env = dict(entry.get("env") or {})
+for key, value in defaults.items():
+    env.setdefault(key, value)
+entry.pop("args", None)
+entry["type"] = "stdio"
+entry["command"] = command
+entry["env"] = env
+servers[name] = entry
+
+with open(config_path, "w") as f:
     json.dump(d, f, indent=2)
-print('    registered → $LIBRARY_DEST/start.sh')
-"
-        else
-            echo "  MCP: prima-scholar-library — not installed, skipping registration"
-        fi
-    fi
+print(f"  MCP: {name} — registered → {command}")
+PYEOF
+    }
+
+    register_server "prima-scholar-search" "$SEARCH_DEST" \
+        '{"CROSSREF_MAILTO": "", "OPENALEX_MAILTO": ""}'
+    register_server "prima-scholar-library" "$LIBRARY_DEST" \
+        '{"RESEARCH_LIBRARY_PATH": "~/.research-library/library.db"}'
 fi
 
 # --- Gitignore ---

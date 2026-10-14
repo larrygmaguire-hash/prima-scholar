@@ -87,13 +87,13 @@ Add to `~/.claude.json` or project `.mcp.json`:
 
 | Variable | Required | Purpose | How to Get |
 |----------|----------|---------|------------|
-| `OPENALEX_MAILTO` | No | Polite pool for OpenAlex (higher rate limits) | Use your email address |
-| `CROSSREF_MAILTO` | No | Polite pool for CrossRef (higher rate limits) | Use your email address |
+| `OPENALEX_MAILTO` | No | Sent to OpenAlex as `mailto` to join its polite pool. Falls back to `CROSSREF_MAILTO` only when `OPENALEX_MAILTO` is not set at all; an empty value, which `install.sh` writes by default, does not fall back. The server's own OpenAlex limit stays at 10 req/sec | Use your email address |
+| `CROSSREF_MAILTO` | No | Sent to CrossRef in the User-Agent header to join its polite pool. The server's own CrossRef limit stays at 50 req/sec | Use your email address |
 | `PUBMED_API_KEY` | No | Higher rate limits (10 req/sec vs 3) | https://www.ncbi.nlm.nih.gov/account/ |
-| `SEMANTIC_SCHOLAR_KEY` | No | Higher rate limits | https://www.semanticscholar.org/product/api |
+| `SEMANTIC_SCHOLAR_KEY` | No | Sent to Semantic Scholar as an API key. The server's own Semantic Scholar limit stays at 100 req/5 min | https://www.semanticscholar.org/product/api |
 | `CORE_API_KEY` | Yes (for CORE) | Required to use CORE database | https://core.ac.uk/services/api (free) |
 
-**The server works without any keys.** 9 of the 10 databases require no authentication. Only CORE requires a free API key. Without keys, rate limits are lower but all other databases function normally.
+**The server works without any keys.** 9 of the 10 databases require no authentication. Only CORE requires a free API key. Without a PubMed key, PubMed is limited to 3 req/sec; all other databases function normally.
 
 ## Tools
 
@@ -138,8 +138,9 @@ Get full metadata for a single paper. Accepts multiple ID formats and routes aut
 - OpenAlex: `W1234567890`
 - ERIC: `EJ1234567` or `ED123456`
 - Europe PMC: `PMC1234567`
-- Semantic Scholar ID
-- DBLP key
+- Semantic Scholar paper ID
+
+DOIs go to Semantic Scholar first and fall back to CrossRef. Any identifier that matches none of the formats above is sent to Semantic Scholar. There is no route to CORE or DBLP, so CORE IDs and DBLP keys are not supported; use the paper's DOI instead.
 
 ### scholar_citations
 
@@ -151,13 +152,13 @@ Uses the Semantic Scholar citation graph.
 
 ### scholar_full_text
 
-Retrieve full text for open access papers. Tries:
-1. CORE (full-text API)
-2. Europe PMC (PMC articles)
-3. arXiv (PDF link)
-4. bioRxiv/medRxiv (preprint PDF)
+Retrieve full text, or a download link, for open access papers. Tries, in order:
+1. CORE, only when `CORE_API_KEY` is set. The ID is looked up as a CORE work ID (a `CORE:` prefix is accepted), and the full text is returned as `fullText` if CORE holds it. This is the only route that returns the text itself.
+2. Europe PMC, for PMC IDs, `PMID:` IDs and DOIs. Returns a `downloadUrl` when Europe PMC lists the paper as open access with full text.
+3. arXiv, for `ARXIV:` IDs and bare IDs such as `2301.12345`. Returns the arXiv PDF URL, built from the ID without checking that the paper exists.
+4. bioRxiv/medRxiv, for DOIs starting `10.1101/`. Returns the `https://doi.org/` link.
 
-Returns the text content or a direct download URL.
+If none applies, the response has `source: "none"` and a message that the paper may be behind a paywall.
 
 ## Discipline Detection
 
@@ -288,14 +289,16 @@ The server implements per-source rate limiting to respect API terms:
 |--------|---------------|-------------------|
 | PubMed | 3 req/sec | 10 req/sec |
 | arXiv | 1 req/3 sec | N/A |
-| Semantic Scholar | 100 req/5 min | Higher |
-| CrossRef | 50 req/sec | N/A (polite pool) |
-| OpenAlex | 10 req/sec | N/A (polite pool) |
+| Semantic Scholar | 100 req/5 min | 100 req/5 min |
+| CrossRef | 50 req/sec | N/A (no key) |
+| OpenAlex | 10 req/sec | N/A (no key) |
 | CORE | 10 req/sec | N/A |
 | Europe PMC | 10 req/sec | N/A |
 | ERIC | 10 req/sec | N/A |
 | bioRxiv/medRxiv | 5 req/sec | N/A |
 | DBLP | 5 req/sec | N/A |
+
+These limits are fixed in the server. Setting an API key raises the built-in limit for PubMed only; the contact emails for OpenAlex and CrossRef do not change the built-in limits.
 
 ## Migration from v1
 

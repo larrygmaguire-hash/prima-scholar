@@ -27,7 +27,7 @@ Wait for the user's response before proceeding.
 Once the topic is established, ask for scope preferences as a brief numbered list:
 
 1. **Depth:** Quick scan (top 5 results) or Comprehensive (top 15+)?
-2. **Sources:** All databases, or specific ones (PubMed, arXiv, Semantic Scholar, CrossRef)?
+2. **Sources:** All ten databases, or specific ones (PubMed, arXiv, Semantic Scholar, CrossRef, OpenAlex, CORE, Europe PMC, ERIC, bioRxiv/medRxiv, DBLP)?
 3. **Date range:** Any, limit to recent N years, or newest first since a given date (recency scan)?
 
 Wait for the user's answers before proceeding.
@@ -37,7 +37,7 @@ Wait for the user's answers before proceeding.
 Invoke the `researching-topics` skill with the gathered parameters:
 - The research topic/question
 - Depth preference (determines `max_results` per search)
-- Selected databases (determines which search tools to call)
+- Selected databases (passed to `scholar_search` as `sources`)
 - Date range filter (passed to search tools where supported)
 
 ## After Research Completes
