@@ -33,9 +33,44 @@ A research workspace plugin for [Claude Code](https://docs.anthropic.com/en/docs
 
 ## Installation
 
-### Claude Code (Full Plugin)
+### Claude Code Plugin (Recommended)
 
-To install, give your Claude Code instance this repository link and ask it to install PRIMA Scholar. It will handle everything.
+The repository is a Claude Code plugin with its own marketplace manifest (`.claude-plugin/marketplace.json`), so it installs in one step and stays installed between sessions.
+
+1. In Claude Code, add the marketplace and install the plugin:
+   ```
+   /plugin marketplace add larrygmaguire-hash/prima-scholar
+   /plugin install prima-scholar@prima-scholar
+   ```
+   On Claude Code 2.1.275 or later the single line `/plugin install prima-scholar --marketplace larrygmaguire-hash/prima-scholar` does both.
+
+2. Build the two MCP servers inside the installed copy. The servers' `build/` folders are not in the repository, and Claude Code installs the plugin into its cache at `~/.claude/plugins/cache/prima-scholar/prima-scholar/<version>/`:
+   ```bash
+   cd ~/.claude/plugins/cache/prima-scholar/prima-scholar/2.2.1/mcp-servers/prima-scholar-search-mcp && npm install && npm run build
+   cd ~/.claude/plugins/cache/prima-scholar/prima-scholar/2.2.1/mcp-servers/prima-scholar-library-mcp && npm install && npm run build
+   ```
+
+3. Restart Claude Code.
+
+Plugin commands and skills carry the plugin name as a prefix, for example `/prima-scholar:scholar`. The servers take their settings from the environment you start Claude Code in: `.mcp.json` passes all six variables under [Configuration](#configuration) (`PUBMED_API_KEY`, `SEMANTIC_SCHOLAR_KEY`, `CORE_API_KEY`, `OPENALEX_MAILTO`, `CROSSREF_MAILTO`, and `RESEARCH_LIBRARY_PATH`). Each is optional. A key or email you have not exported is passed as empty, and `RESEARCH_LIBRARY_PATH` falls back to `~/.research-library/library.db`, so the plugin starts with nothing set. To use a key, export it before you start Claude Code, for example `export CORE_API_KEY=your-key`.
+
+To update, run `/plugin marketplace update prima-scholar` and then `/plugin update prima-scholar@prima-scholar`, build the servers again in the new version folder, and restart Claude Code.
+
+### Claude Code Plugin From a Local Clone (Development)
+
+To work on the plugin itself, load it from a clone for one session instead of installing it.
+
+1. Clone the repository and build both MCP servers (steps 1 and 2 under [Claude Code Installer](#claude-code-installer-copies-into-a-workspace) below).
+2. Start Claude Code with the plugin folder:
+   ```bash
+   claude --plugin-dir ~/Developer/prima-scholar
+   ```
+
+`--plugin-dir` loads the plugin for that session only, and nothing is copied into your workspace or the plugin cache. `.claude-plugin/plugin.json` is the plugin manifest, and `.mcp.json` starts both MCP servers from the plugin folder (`${CLAUDE_PLUGIN_ROOT}/mcp-servers/.../build/index.js`). Claude Code reads the commands, skills, and agents from the `commands/`, `skills/`, and `agents/` folders. Environment variables work as on the installed route.
+
+### Claude Code Installer (Copies Into a Workspace)
+
+The older route copies the plugin's files into one workspace's `.claude/` folder and registers the MCP servers in `~/.claude.json`. To use it, give your Claude Code instance this repository link and ask it to install PRIMA Scholar with the installer. It will handle everything.
 
 > **Instructions for Claude Code (read and follow these steps):**
 >
@@ -60,20 +95,6 @@ To install, give your Claude Code instance this repository link and ask it to in
 The install script copies commands, skills, agents, and MCP server code into the workspace's `.claude/` directory, registers the MCP servers in `~/.claude.json`, and adds the MCP server directories to the workspace's `.gitignore`. It needs `bash` and `python3` (see [Requirements](#requirements)). The workspace must already have a `.claude/` folder. If `~/.claude.json` does not exist, the script skips registration and you add the servers yourself.
 
 To set API keys on this route, add them to the `env` block of the `prima-scholar-search` entry in `~/.claude.json` (variable names under [Configuration](#configuration)), then restart Claude Code.
-
-### Claude Code Plugin (Load for One Session)
-
-The repository is also laid out as a Claude Code plugin. `.claude-plugin/plugin.json` is the plugin manifest, and `.mcp.json` starts both MCP servers from the plugin folder (`${CLAUDE_PLUGIN_ROOT}/mcp-servers/.../build/index.js`). Claude Code reads the commands, skills, and agents from the `commands/`, `skills/`, and `agents/` folders.
-
-1. Clone the repository and build both MCP servers (steps 1 and 2 above). The servers' `build/` folders are not in the repository, so the plugin cannot start them until you build.
-2. Start Claude Code with the plugin folder:
-   ```bash
-   claude --plugin-dir ~/Developer/prima-scholar
-   ```
-
-`--plugin-dir` loads the plugin for that session only, and nothing is copied into your workspace. The repository has no marketplace manifest (`.claude-plugin/marketplace.json`), so it cannot be added with `/plugin marketplace add` or installed with `/plugin install` on its own. Plugin commands and skills carry the plugin name as a prefix, for example `/prima-scholar:scholar`.
-
-On this route the servers take their settings from the environment you start Claude Code in. `.mcp.json` passes all six variables under [Configuration](#configuration): `PUBMED_API_KEY`, `SEMANTIC_SCHOLAR_KEY`, `CORE_API_KEY`, `OPENALEX_MAILTO`, `CROSSREF_MAILTO`, and `RESEARCH_LIBRARY_PATH`. Each is optional. A key or email you have not exported is passed as empty, and `RESEARCH_LIBRARY_PATH` falls back to `~/.research-library/library.db`, so the plugin starts with nothing set. To use a key, export it before you start Claude Code, for example `export CORE_API_KEY=your-key`.
 
 ### Claude Desktop (MCP Servers Only)
 
@@ -107,6 +128,8 @@ You can install either server independently. The search server has no dependency
 ## Updates and Customisation
 
 ### Updating
+
+If you installed from the marketplace, update with the `/plugin marketplace update` and `/plugin update` lines under [Claude Code Plugin (Recommended)](#claude-code-plugin-recommended). The steps below are for the installer route.
 
 To update, ask your Claude Code instance to update PRIMA Scholar. It will pull the latest version, rebuild, and re-install.
 
@@ -192,7 +215,7 @@ These steps reverse what `install.sh` does, for a workspace at `/path/to/workspa
 
 The installer does not create your research library or the literature watch files, so uninstalling leaves them in place. The library is the SQLite file at `RESEARCH_LIBRARY_PATH` (default `~/.research-library/library.db`), plus any `-wal` and `-shm` files beside it; deleting it deletes every document record, tag, and collection. The literature watch config and state are in `.claude/literature-watch/` in the workspace, and digests are in the folder set by `digest_dir`. Delete these only if you no longer want them. You can also delete the clone at `~/Developer/prima-scholar`.
 
-If you used the plugin route, stop starting Claude Code with `--plugin-dir`; nothing was copied into the workspace.
+If you installed from the marketplace, run `/plugin uninstall prima-scholar@prima-scholar` and, if you no longer want the marketplace listed, `/plugin marketplace remove prima-scholar`; nothing was copied into the workspace. If you loaded the plugin with `--plugin-dir`, stop passing the flag.
 
 ## Configuration
 

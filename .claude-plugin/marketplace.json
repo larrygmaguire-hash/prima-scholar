@@ -1,0 +1,23 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "prima-scholar",
+  "owner": {
+    "name": "PRIMA Contributors",
+    "email": "larry@humanperformance.ie"
+  },
+  "metadata": {
+    "description": "PRIMA Scholar for Claude Code: academic search across ten databases, a local research library, and citation-aware writing."
+  },
+  "plugins": [
+    {
+      "name": "prima-scholar",
+      "source": "./",
+      "description": "Research workspace with academic search (PubMed, arXiv, Semantic Scholar, CrossRef, OpenAlex, Europe PMC, DBLP, ERIC, bioRxiv/medRxiv, CORE), a local SQLite document library with full-text search, citation-aware writing, and a literature watch. Two bundled MCP servers; build them after installing.",
+      "category": "research",
+      "author": {
+        "name": "PRIMA Contributors",
+        "email": "larry@humanperformance.ie"
+      }
+    }
+  ]
+}

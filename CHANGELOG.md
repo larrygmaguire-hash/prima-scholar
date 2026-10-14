@@ -28,9 +28,14 @@ Bug fixes and documentation corrections. Search and Library MCP servers change i
 - OpenAlex client: `OPENALEX_MAILTO` falls back to `CROSSREF_MAILTO` when it is empty as well as when it is unset. `install.sh` writes an empty `OPENALEX_MAILTO` by default, so the fallback never applied on the installer route.
 - `literature-watch-agent` step 5 said `scholar_get_paper` routes a DOI to CrossRef; it resolves a DOI through Semantic Scholar and falls back to CrossRef.
 
+### Added
+
+- `.claude-plugin/marketplace.json`: a single-plugin marketplace named `prima-scholar`, so the plugin can be added with `/plugin marketplace add larrygmaguire-hash/prima-scholar` and installed with `/plugin install prima-scholar@prima-scholar`, and stays installed between sessions. `--plugin-dir` remains the development route.
+
 ### Changed
 
 - README: clone command added to the install steps; the Claude Code plugin route (`.claude-plugin/plugin.json`, `.mcp.json`, `claude --plugin-dir`) documented; all three agents listed; uninstall steps added that reverse `install.sh`; `python3`, `bash` and `git` added to the requirements, with the installer's OS support.
+- README install section reordered: the marketplace route first, then `--plugin-dir` for development, then `install.sh`, then Claude Desktop.
 - README and search server README: rate limit and key descriptions match the built-in limiters (only the PubMed key raises a limit); citation style default stated as all six styles unless `citation_style` is set; full-text and paper lookup descriptions match the code.
 - `install.sh` header lists the `.gitignore` step and the `python3` requirement.
 - Version 2.2.1 across `plugin.json`, both MCP `package.json` and `package-lock.json` files, and both servers' runtime version strings.
